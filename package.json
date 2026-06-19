@@ -4,7 +4,7 @@
   "description": "Plagiarism Checker Desktop App",
   "main": "main.js",
   "scripts": {
-    "start": "electron .",
+    "start": "start node_modules/electron/dist/electron.exe .",
     "build": "electron-builder",
     "build:portable": "electron-builder --win portable",
     "build:installer": "electron-builder --win nsis",

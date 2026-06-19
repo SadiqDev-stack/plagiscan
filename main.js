@@ -36,6 +36,8 @@ function createWindow() {
 
   mainWindow.loadFile('index.html');
   mainWindow.setTitle('PlagiScan - Plagiarism Checker');
+  mainWindow.setMenuBarVisibility(false);
+  mainWindow.maximize();
   
   // Create native menu
   createMenu();
