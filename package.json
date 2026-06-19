@@ -4,18 +4,11 @@
   "description": "Plagiarism Checker Desktop App",
   "main": "main.js",
   "scripts": {
-    "start": "start node_modules/electron/dist/electron.exe .",
+    "start": "electron .",
     "build": "electron-builder",
     "build:portable": "electron-builder --win portable",
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "keywords": ["plagiarism", "checker", "desktop"],
-  "author": "sadiq",
-  "license": "MIT",
-  "type": "commonjs",
-  "devDependencies": {
-    "electron": "^42.4.1",
-    "electron-builder": "^24.13.3"
+    "build:installer": "electron-builder --win nsis",
+    "build:all": "electron-builder --win nsis portable"
   },
   "build": {
     "appId": "com.sadiq.plagiscan",
@@ -26,16 +19,26 @@
     "files": [
       "main.js",
       "index.html",
-      "renderer.js"
+      "renderer.js",
+      "preload.js",
+      "menu.js"
     ],
     "win": {
-      "target": [
-        "portable", "nsis"
-      ],
-      "icon": "icon.ico"
+      "target": ["nsis", "portable"]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "PlagiScan"
     },
     "portable": {
       "artifactName": "PlagiScan.exe"
     }
+  },
+  "devDependencies": {
+    "electron": "^42.4.1",
+    "electron-builder": "^24.13.3"
   }
 }
