@@ -1,16 +1,38 @@
 <!DOCTYPE html>
 <html>
 <head>
+  <meta charset="UTF-8">
   <title>PlagiScan - Plagiarism Detection</title>
-   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  
+  <!-- CDN Libraries -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
-   <style>
-    /* ===== CSS Reset & Base ===== */
+  
+  <style>
     * {
       margin: 0;
       padding: 0;
       box-sizing: border-box;
+      user-select: none;
+      
     }
+/* Disable text selection, drag, and right-click */
+* {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+  -webkit-user-drag: none;
+  -webkit-touch-callout: none;
+}
+
+/* Allow text selection in text areas and inputs */
+input, textarea, .content-preview {
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  -ms-user-select: text;
+  user-select: text;
+}
 
     :root {
       --navy-900: #0a1628;
@@ -28,7 +50,6 @@
       --shadow-sm: 0 2px 8px rgba(10, 22, 40, 0.08);
       --shadow-md: 0 4px 20px rgba(10, 22, 40, 0.12);
       --shadow-lg: 0 8px 40px rgba(10, 22, 40, 0.16);
-      --shadow-xl: 0 16px 60px rgba(10, 22, 40, 0.2);
       --radius: 12px;
       --radius-lg: 20px;
       --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -42,7 +63,7 @@
       overflow-x: hidden;
     }
 
-    /* ===== Splash Screen ===== */
+    /* Splash Screen */
     #splash {
       position: fixed;
       top: 0;
@@ -57,13 +78,7 @@
       z-index: 9999;
       transition: opacity 0.8s ease, visibility 0.8s ease;
     }
-
-    #splash.hide {
-      opacity: 0;
-      visibility: hidden;
-      pointer-events: none;
-    }
-
+    #splash.hide { opacity: 0; visibility: hidden; pointer-events: none; }
     #splash .logo-mark {
       width: 80px;
       height: 80px;
@@ -79,47 +94,14 @@
       box-shadow: 0 8px 40px rgba(59, 108, 176, 0.3);
       animation: pulseLogo 2s ease-in-out infinite;
     }
+    #splash .logo-mark img { width: 100%; height: 100%; object-fit: contain; border-radius: var(--radius-lg); }
+    @keyframes pulseLogo { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
+    #splash h1 { color: var(--white); font-size: 32px; font-weight: 300; letter-spacing: 2px; }
+    #splash h1 strong { font-weight: 700; color: var(--navy-400); }
+    #splash .loader { margin-top: 32px; width: 200px; height: 3px; background: rgba(255,255,255,0.1); border-radius: 4px; overflow: hidden; }
+    #splash .loader-bar { height: 100%; width: 0; background: linear-gradient(90deg, var(--navy-400), var(--navy-600)); border-radius: 4px; animation: loadBar 1.2s ease-in-out forwards; }
+    @keyframes loadBar { 0% { width: 0; } 100% { width: 100%; } }
 
-    @keyframes pulseLogo {
-      0%, 100% { transform: scale(1); }
-      50% { transform: scale(1.05); }
-    }
-
-    #splash h1 {
-      color: var(--white);
-      font-size: 32px;
-      font-weight: 300;
-      letter-spacing: 2px;
-    }
-
-    #splash h1 strong {
-      font-weight: 700;
-      color: var(--navy-400);
-    }
-
-    #splash .loader {
-      margin-top: 32px;
-      width: 200px;
-      height: 3px;
-      background: rgba(255,255,255,0.1);
-      border-radius: 4px;
-      overflow: hidden;
-    }
-
-    #splash .loader-bar {
-      height: 100%;
-      width: 0;
-      background: linear-gradient(90deg, var(--navy-400), var(--navy-600));
-      border-radius: 4px;
-      animation: loadBar 1.2s ease-in-out forwards;
-    }
-
-    @keyframes loadBar {
-      0% { width: 0; }
-      100% { width: 100%; }
-    }
-
-    /* ===== App Layout ===== */
     .app {
       display: flex;
       flex-direction: column;
@@ -128,12 +110,9 @@
       opacity: 0;
       transition: opacity 0.6s ease;
     }
+    .app.ready { opacity: 1; }
 
-    .app.ready {
-      opacity: 1;
-    }
-
-    /* ===== Header ===== */
+    /* Header */
     .header {
       background: var(--white);
       padding: 16px 32px;
@@ -147,13 +126,7 @@
       flex-wrap: wrap;
       gap: 12px;
     }
-
-    .header-left {
-      display: flex;
-      align-items: center;
-      gap: 16px;
-    }
-
+    .header-left { display: flex; align-items: center; gap: 16px; }
     .logo-icon {
       width: 40px;
       height: 40px;
@@ -166,32 +139,12 @@
       font-weight: 700;
       color: var(--white);
       flex-shrink: 0;
+      overflow: hidden;
     }
-
-    .logo-icon img {
-      width: 100%;
-      height: 100%;
-      object-fit: contain;
-      border-radius: var(--radius);
-    }
-
-    .header h1 {
-      font-size: 22px;
-      font-weight: 600;
-      color: var(--navy-900);
-      letter-spacing: -0.5px;
-    }
-
-    .header h1 span {
-      font-weight: 300;
-      color: var(--gray-500);
-    }
-
-    .header-actions {
-      display: flex;
-      gap: 8px;
-    }
-
+    .logo-icon img { width: 100%; height: 100%; object-fit: contain; border-radius: var(--radius); }
+    .header h1 { font-size: 22px; font-weight: 600; color: var(--navy-900); letter-spacing: -0.5px; }
+    .header h1 span { font-weight: 300; color: var(--gray-500); }
+    .header-actions { display: flex; gap: 8px; }
     .header-actions button {
       background: transparent;
       border: none;
@@ -205,212 +158,132 @@
       align-items: center;
       gap: 6px;
     }
+    .header-actions button:hover { background: var(--gray-100); color: var(--navy-700); }
 
-    .header-actions button:hover {
-      background: var(--gray-100);
-      color: var(--navy-700);
-    }
+    /* Main */
+    .main { flex: 1; padding: 32px; max-width: 1400px; margin: 0 auto; width: 100%; }
+    @media (max-width: 768px) { .main { padding: 16px; } .header { padding: 12px 16px; } }
 
-    /* ===== Main Content ===== */
-    .main {
-      flex: 1;
-      padding: 32px;
-      max-width: 1400px;
-      margin: 0 auto;
-      width: 100%;
-    }
-
-    /* ===== Upload Section ===== */
+    /* Upload Grid - Two Columns */
     .upload-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 24px;
       margin-bottom: 24px;
     }
+    @media (max-width: 768px) { .upload-grid { grid-template-columns: 1fr; } }
 
-    @media (max-width: 768px) {
-      .upload-grid {
-        grid-template-columns: 1fr;
-      }
-      .main {
-        padding: 16px;
-      }
-      .header {
-        padding: 12px 16px;
-      }
-    }
-
-    .upload-box {
+    /* Document Box */
+    .doc-box {
       background: var(--white);
       border-radius: var(--radius-lg);
-      padding: 40px 24px;
-      text-align: center;
-      cursor: pointer;
-      transition: var(--transition);
       box-shadow: var(--shadow-sm);
+      overflow: hidden;
+      transition: var(--transition);
+      border: 2px solid transparent;
+    }
+    .doc-box:hover { box-shadow: var(--shadow-md); }
+    .doc-box.has-content { border-color: var(--navy-400); }
+
+    .doc-header {
+      padding: 16px 20px;
+      background: var(--gray-100);
+      border-bottom: 1px solid var(--gray-300);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .doc-header h3 { font-size: 14px; font-weight: 600; color: var(--navy-900); }
+    .doc-header .badge {
+      font-size: 11px;
+      padding: 2px 12px;
+      border-radius: 20px;
+      background: var(--gray-300);
+      color: var(--gray-700);
+    }
+    .doc-header .badge.loaded { background: rgba(59, 108, 176, 0.1); color: var(--navy-500); }
+
+    .doc-body {
+      padding: 20px;
       min-height: 200px;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      border: 2px solid transparent;
-      position: relative;
     }
 
-    .upload-box:hover {
-      box-shadow: var(--shadow-md);
-      transform: translateY(-2px);
-    }
-
-    .upload-box.dragover {
-      border-color: var(--navy-400);
-      background: rgba(59, 108, 176, 0.04);
-      box-shadow: var(--shadow-md);
-    }
-
-    .upload-box.has-content {
-      border-color: var(--navy-400);
-      background: rgba(59, 108, 176, 0.03);
-    }
-
-    .upload-box .icon {
-      font-size: 40px;
-      color: var(--gray-300);
-      margin-bottom: 12px;
+    /* Upload Area inside doc */
+    .upload-area {
+      width: 100%;
+      border: 2px dashed var(--gray-300);
+      border-radius: var(--radius);
+      padding: 30px 20px;
+      text-align: center;
+      cursor: pointer;
       transition: var(--transition);
+      background: var(--gray-100);
     }
+    .upload-area:hover { border-color: var(--navy-400); background: rgba(59, 108, 176, 0.04); }
+    .upload-area.dragover { border-color: var(--navy-400); background: rgba(59, 108, 176, 0.08); }
+    .upload-area .icon { font-size: 32px; margin-bottom: 8px; }
+    .upload-area .label { font-size: 13px; color: var(--gray-500); }
+    .upload-area .label strong { color: var(--navy-500); }
+    .upload-area input[type="file"] { display: none; }
 
-    .upload-box.has-content .icon {
-      color: var(--navy-400);
-    }
-
-    .upload-box .label {
-      font-size: 14px;
-      font-weight: 500;
-      color: var(--gray-500);
-      margin-bottom: 4px;
-    }
-
-    .upload-box .label strong {
-      color: var(--navy-500);
-      font-weight: 600;
-    }
-
-    .upload-box .hint {
-      font-size: 13px;
-      color: var(--gray-300);
-    }
-
-    .upload-box .file-info {
-      margin-top: 12px;
-      font-size: 14px;
-      color: var(--gray-700);
-    }
-
-    .upload-box .file-name {
-      font-weight: 600;
-      color: var(--navy-600);
-    }
-
-    .upload-box .file-size {
-      font-size: 12px;
-      color: var(--gray-500);
-      margin-top: 4px;
-    }
-
-    .upload-box .file-status {
-      margin-top: 8px;
-      padding: 4px 16px;
-      border-radius: 20px;
-      font-size: 12px;
-      font-weight: 500;
-      display: inline-block;
-    }
-
-    .upload-box .file-status.loaded {
-      background: rgba(59, 108, 176, 0.1);
-      color: var(--navy-500);
-    }
-
-    .upload-box .file-status.error {
-      background: rgba(229, 62, 62, 0.1);
-      color: #e53e3e;
-    }
-
-    .upload-box input[type="file"] {
-      display: none;
-    }
-
-    /* ===== URL Input ===== */
-    .url-section {
-      background: var(--white);
-      border-radius: var(--radius-lg);
-      padding: 16px 20px;
-      box-shadow: var(--shadow-sm);
+    .doc-actions {
       display: flex;
-      gap: 12px;
-      align-items: center;
-      margin-bottom: 24px;
+      gap: 8px;
+      margin-top: 12px;
       flex-wrap: wrap;
+      justify-content: center;
     }
-
-    .url-section .url-icon {
-      color: var(--gray-400);
-      font-size: 18px;
-      flex-shrink: 0;
-    }
-
-    .url-section input {
-      flex: 1;
-      padding: 10px 14px;
+    .doc-actions button {
+      padding: 6px 14px;
       border: 1px solid var(--gray-300);
       border-radius: var(--radius);
-      font-size: 14px;
-      transition: var(--transition);
-      min-width: 200px;
-      background: var(--gray-100);
-      color: var(--gray-700);
-    }
-
-    .url-section input:focus {
-      outline: none;
-      border-color: var(--navy-400);
       background: var(--white);
-      box-shadow: 0 0 0 3px rgba(59, 108, 176, 0.1);
-    }
-
-    .url-section input::placeholder {
-      color: var(--gray-300);
-    }
-
-    .url-section button {
-      padding: 10px 24px;
-      background: var(--navy-500);
-      color: var(--white);
-      border: none;
-      border-radius: var(--radius);
       cursor: pointer;
-      font-weight: 500;
-      font-size: 14px;
+      font-size: 12px;
+      color: var(--gray-700);
       transition: var(--transition);
-      white-space: nowrap;
+      display: flex;
+      align-items: center;
+      gap: 4px;
     }
+    .doc-actions button:hover { background: var(--navy-500); color: var(--white); border-color: var(--navy-500); }
+    .doc-actions button .icon-sm { font-size: 14px; }
 
-    .url-section button:hover {
-      background: var(--navy-600);
-      box-shadow: var(--shadow-sm);
+    .file-info {
+      margin-top: 12px;
+      padding: 10px 16px;
+      background: rgba(59, 108, 176, 0.06);
+      border-radius: var(--radius);
+      width: 100%;
+      text-align: center;
     }
+    .file-info .name { font-weight: 600; color: var(--navy-600); font-size: 14px; }
+    .file-info .meta { font-size: 12px; color: var(--gray-500); margin-top: 2px; }
 
-    .url-section button:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
+    /* Content Preview */
+    .content-preview {
+      margin-top: 12px;
+      width: 100%;
+      max-height: 100px;
+      overflow-y: auto;
+      background: var(--gray-100);
+      border-radius: var(--radius);
+      padding: 10px 14px;
+      font-size: 13px;
+      color: var(--gray-700);
+      border: 1px solid var(--gray-300);
+      text-align: left;
+      display: none;
     }
+    .content-preview.visible { display: block; }
+    .content-preview .char-count { font-size: 11px; color: var(--gray-500); margin-top: 4px; text-align: right; }
 
-    /* ===== Compare Button ===== */
-    .compare-wrap {
-      margin-bottom: 24px;
-    }
-
+    /* Compare Button */
+    .compare-wrap { margin-bottom: 24px; }
     .compare-btn {
       width: 100%;
       padding: 16px;
@@ -422,28 +295,10 @@
       font-weight: 600;
       cursor: pointer;
       transition: var(--transition);
-      position: relative;
-      overflow: hidden;
     }
-
-    .compare-btn:hover:not(:disabled) {
-      background: var(--navy-800);
-      box-shadow: var(--shadow-md);
-      transform: translateY(-1px);
-    }
-
-    .compare-btn:disabled {
-      opacity: 0.4;
-      cursor: not-allowed;
-      transform: none;
-    }
-
-    .compare-btn .scan-indicator {
-      display: inline-flex;
-      align-items: center;
-      gap: 10px;
-    }
-
+    .compare-btn:hover:not(:disabled) { background: var(--navy-800); box-shadow: var(--shadow-md); transform: translateY(-1px); }
+    .compare-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .compare-btn .scan-indicator { display: inline-flex; align-items: center; gap: 10px; }
     .compare-btn .scan-indicator .dot {
       display: none;
       width: 8px;
@@ -452,303 +307,61 @@
       background: var(--white);
       animation: dotPulse 1s ease-in-out infinite;
     }
+    .compare-btn.scanning .scan-indicator .dot { display: inline-block; }
+    .compare-btn.scanning .scan-indicator .dot:nth-child(2) { animation-delay: 0.2s; }
+    .compare-btn.scanning .scan-indicator .dot:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes dotPulse { 0%, 100% { opacity: 0.3; transform: scale(0.8); } 50% { opacity: 1; transform: scale(1.2); } }
 
-    .compare-btn.scanning .scan-indicator .dot {
-      display: inline-block;
-    }
-
-    .compare-btn.scanning .scan-indicator .dot:nth-child(2) {
-      animation-delay: 0.2s;
-    }
-    .compare-btn.scanning .scan-indicator .dot:nth-child(3) {
-      animation-delay: 0.4s;
-    }
-
-    @keyframes dotPulse {
-      0%, 100% { opacity: 0.3; transform: scale(0.8); }
-      50% { opacity: 1; transform: scale(1.2); }
-    }
-
-    /* ===== Result Section ===== */
-    .result-section {
-      display: none;
-      animation: fadeSlide 0.5s ease;
-    }
-
-    .result-section.visible {
-      display: block;
-    }
-
-    @keyframes fadeSlide {
-      from {
-        opacity: 0;
-        transform: translateY(16px);
-      }
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
-    }
-
-    .result-card {
-      background: var(--white);
-      border-radius: var(--radius-lg);
-      padding: 28px;
-      box-shadow: var(--shadow-md);
-    }
-
-    .result-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      flex-wrap: wrap;
-      gap: 16px;
-      margin-bottom: 20px;
-      padding-bottom: 20px;
-      border-bottom: 1px solid var(--gray-100);
-    }
-
-    .score-block {
-      display: flex;
-      align-items: baseline;
-      gap: 8px;
-    }
-
-    .score-number {
-      font-size: 56px;
-      font-weight: 700;
-      color: var(--navy-900);
-      line-height: 1;
-      letter-spacing: -2px;
-    }
-
-    .score-label {
-      font-size: 14px;
-      color: var(--gray-500);
-      font-weight: 400;
-    }
-
-    .score-status {
-      font-size: 16px;
-      font-weight: 500;
-    }
-
+    /* Result */
+    .result-section { display: none; animation: fadeSlide 0.5s ease; }
+    .result-section.visible { display: block; }
+    @keyframes fadeSlide { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+    .result-card { background: var(--white); border-radius: var(--radius-lg); padding: 28px; box-shadow: var(--shadow-md); }
+    .result-header { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 16px; margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid var(--gray-100); }
+    .score-block { display: flex; align-items: baseline; gap: 8px; }
+    .score-number { font-size: 56px; font-weight: 700; color: var(--navy-900); line-height: 1; letter-spacing: -2px; }
+    .score-label { font-size: 14px; color: var(--gray-500); font-weight: 400; }
+    .score-status { font-size: 16px; font-weight: 500; }
     .score-status.high { color: #e53e3e; }
     .score-status.medium { color: #dd6b20; }
     .score-status.low { color: #38a169; }
-
-    .result-stats {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-      gap: 16px;
-      margin-bottom: 20px;
-    }
-
-    .stat-item {
-      text-align: center;
-      padding: 12px;
-      background: var(--gray-100);
-      border-radius: var(--radius);
-    }
-
-    .stat-item .label {
-      font-size: 11px;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      color: var(--gray-500);
-      font-weight: 600;
-    }
-
-    .stat-item .value {
-      font-size: 20px;
-      font-weight: 700;
-      color: var(--navy-900);
-      margin-top: 4px;
-    }
-
-    .word-cloud {
-      padding: 16px;
-      background: var(--gray-100);
-      border-radius: var(--radius);
-      margin-bottom: 20px;
-      min-height: 60px;
-    }
-
-    .word-cloud .title {
-      font-size: 13px;
-      font-weight: 600;
-      color: var(--gray-500);
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      margin-bottom: 10px;
-      display: block;
-    }
-
-    .word-tag {
-      display: inline-block;
-      padding: 4px 14px;
-      border-radius: 20px;
-      margin: 3px;
-      font-size: 13px;
-      font-weight: 500;
-      transition: var(--transition);
-    }
-
-    .word-tag:hover {
-      transform: scale(1.05);
-    }
-
+    .result-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 16px; margin-bottom: 20px; }
+    .stat-item { text-align: center; padding: 12px; background: var(--gray-100); border-radius: var(--radius); }
+    .stat-item .label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--gray-500); font-weight: 600; }
+    .stat-item .value { font-size: 20px; font-weight: 700; color: var(--navy-900); margin-top: 4px; }
+    .word-cloud { padding: 16px; background: var(--gray-100); border-radius: var(--radius); margin-bottom: 20px; min-height: 60px; }
+    .word-cloud .title { font-size: 13px; font-weight: 600; color: var(--gray-500); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px; display: block; }
+    .word-tag { display: inline-block; padding: 4px 14px; border-radius: 20px; margin: 3px; font-size: 13px; font-weight: 500; transition: var(--transition); }
+    .word-tag:hover { transform: scale(1.05); }
     .word-tag.level-1 { background: #bee3f8; color: #2a4365; }
     .word-tag.level-2 { background: #c6f6d5; color: #22543d; }
     .word-tag.level-3 { background: #fbd38d; color: #744210; }
     .word-tag.level-4 { background: #feb2b2; color: #742a2a; }
+    .result-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+    .result-actions button { padding: 10px 20px; border: none; border-radius: var(--radius); cursor: pointer; font-weight: 500; font-size: 14px; transition: var(--transition); display: flex; align-items: center; gap: 8px; }
+    .btn-primary { background: var(--navy-500); color: var(--white); }
+    .btn-primary:hover { background: var(--navy-600); box-shadow: var(--shadow-sm); }
 
-    .result-actions {
-      display: flex;
-      gap: 10px;
-      flex-wrap: wrap;
-    }
-
-    .result-actions button {
-      padding: 10px 20px;
-      border: none;
-      border-radius: var(--radius);
-      cursor: pointer;
-      font-weight: 500;
-      font-size: 14px;
-      transition: var(--transition);
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .btn-primary {
-      background: var(--navy-500);
-      color: var(--white);
-    }
-
-    .btn-primary:hover {
-      background: var(--navy-600);
-      box-shadow: var(--shadow-sm);
-    }
-
-    /* ===== History Sidebar ===== */
-    .history-sidebar {
-      background: var(--white);
-      border-radius: var(--radius-lg);
-      padding: 20px;
-      box-shadow: var(--shadow-sm);
-      margin-top: 24px;
-    }
-
-    .history-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 16px;
-    }
-
-    .history-header h3 {
-      font-size: 16px;
-      font-weight: 600;
-      color: var(--navy-900);
-    }
-
-    .history-header .badge {
-      background: var(--gray-100);
-      color: var(--gray-500);
-      padding: 2px 12px;
-      border-radius: 20px;
-      font-size: 12px;
-      font-weight: 500;
-    }
-
-    .history-list {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      max-height: 300px;
-      overflow-y: auto;
-    }
-
-    .history-item {
-      background: var(--gray-100);
-      border-radius: var(--radius);
-      padding: 14px 16px;
-      cursor: pointer;
-      transition: var(--transition);
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 12px;
-    }
-
-    .history-item:hover {
-      background: rgba(59, 108, 176, 0.06);
-      transform: translateX(4px);
-    }
-
-    .history-item .info {
-      flex: 1;
-      min-width: 0;
-    }
-
-    .history-item .name {
-      font-weight: 600;
-      color: var(--navy-900);
-      font-size: 14px;
-    }
-
-    .history-item .meta {
-      font-size: 12px;
-      color: var(--gray-500);
-      margin-top: 2px;
-    }
-
-    .history-item .score {
-      font-size: 20px;
-      font-weight: 700;
-      flex-shrink: 0;
-    }
-
+    /* Sidebar - History */
+    .history-sidebar { background: var(--white); border-radius: var(--radius-lg); padding: 20px; box-shadow: var(--shadow-sm); margin-top: 24px; }
+    .history-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+    .history-header h3 { font-size: 16px; font-weight: 600; color: var(--navy-900); }
+    .history-header .badge { background: var(--gray-100); color: var(--gray-500); padding: 2px 12px; border-radius: 20px; font-size: 12px; font-weight: 500; }
+    .history-list { display: flex; flex-direction: column; gap: 8px; max-height: 300px; overflow-y: auto; }
+    .history-item { background: var(--gray-100); border-radius: var(--radius); padding: 14px 16px; cursor: pointer; transition: var(--transition); display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+    .history-item:hover { background: rgba(59, 108, 176, 0.06); transform: translateX(4px); }
+    .history-item .info { flex: 1; min-width: 0; }
+    .history-item .name { font-weight: 600; color: var(--navy-900); font-size: 14px; }
+    .history-item .meta { font-size: 12px; color: var(--gray-500); margin-top: 2px; }
+    .history-item .score { font-size: 20px; font-weight: 700; flex-shrink: 0; }
     .history-item .score.high { color: #e53e3e; }
     .history-item .score.medium { color: #dd6b20; }
     .history-item .score.low { color: #38a169; }
+    .history-item .delete-btn { background: transparent; border: none; color: var(--gray-300); cursor: pointer; padding: 4px 8px; border-radius: 6px; transition: var(--transition); font-size: 14px; flex-shrink: 0; }
+    .history-item .delete-btn:hover { color: #e53e3e; background: rgba(229, 62, 62, 0.08); }
+    .history-empty { text-align: center; padding: 32px 0; color: var(--gray-500); }
 
-    .history-item .delete-btn {
-      background: transparent;
-      border: none;
-      color: var(--gray-300);
-      cursor: pointer;
-      padding: 4px 8px;
-      border-radius: 6px;
-      transition: var(--transition);
-      font-size: 14px;
-      flex-shrink: 0;
-    }
-
-    .history-item .delete-btn:hover {
-      color: #e53e3e;
-      background: rgba(229, 62, 62, 0.08);
-    }
-
-    .history-empty {
-      text-align: center;
-      padding: 32px 0;
-      color: var(--gray-500);
-    }
-
-    .history-empty .icon {
-      font-size: 32px;
-      margin-bottom: 8px;
-      opacity: 0.4;
-    }
-
-    .history-empty p {
-      font-size: 14px;
-    }
-
-    /* ===== Modal ===== */
+    /* Modals */
     .modal-overlay {
       display: none;
       position: fixed;
@@ -763,74 +376,41 @@
       align-items: center;
       animation: fadeIn 0.3s ease;
     }
-
-    .modal-overlay.visible {
-      display: flex;
-    }
-
-    @keyframes fadeIn {
-      from { opacity: 0; }
-      to { opacity: 1; }
-    }
-
+    .modal-overlay.visible { display: flex; }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
     .modal {
       background: var(--white);
       border-radius: var(--radius-lg);
       padding: 32px;
-      max-width: 480px;
+      max-width: 560px;
       width: 90%;
       animation: scaleIn 0.3s ease;
-      box-shadow: var(--shadow-xl);
+      box-shadow: var(--shadow-lg);
+      max-height: 90vh;
+      overflow-y: auto;
     }
-
-    @keyframes scaleIn {
-      from {
-        transform: scale(0.95);
-        opacity: 0;
-      }
-      to {
-        transform: scale(1);
-        opacity: 1;
-      }
-    }
-
-    .modal h3 {
-      font-size: 20px;
-      font-weight: 600;
-      color: var(--navy-900);
-      margin-bottom: 8px;
-    }
-
-    .modal p {
-      color: var(--gray-500);
-      margin-bottom: 20px;
-      font-size: 14px;
-    }
-
-    .modal input {
+    @keyframes scaleIn { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+    .modal h3 { font-size: 20px; font-weight: 600; color: var(--navy-900); margin-bottom: 8px; }
+    .modal p { color: var(--gray-500); margin-bottom: 20px; font-size: 14px; }
+    .modal textarea, .modal input {
       width: 100%;
       padding: 12px 16px;
       border: 1px solid var(--gray-300);
       border-radius: var(--radius);
       font-size: 14px;
-      margin-bottom: 20px;
+      margin-bottom: 16px;
       transition: var(--transition);
       background: var(--gray-100);
+      font-family: inherit;
     }
-
-    .modal input:focus {
+    .modal textarea { min-height: 150px; resize: vertical; }
+    .modal input:focus, .modal textarea:focus {
       outline: none;
       border-color: var(--navy-400);
       background: var(--white);
       box-shadow: 0 0 0 3px rgba(59, 108, 176, 0.1);
     }
-
-    .modal-actions {
-      display: flex;
-      gap: 10px;
-      justify-content: flex-end;
-    }
-
+    .modal-actions { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; }
     .modal-actions button {
       padding: 10px 24px;
       border: none;
@@ -840,27 +420,13 @@
       font-size: 14px;
       transition: var(--transition);
     }
+    .modal-actions .btn-cancel { background: var(--gray-100); color: var(--gray-700); }
+    .modal-actions .btn-cancel:hover { background: var(--gray-300); }
+    .modal-actions .btn-confirm { background: var(--navy-500); color: var(--white); }
+    .modal-actions .btn-confirm:hover { background: var(--navy-600); box-shadow: var(--shadow-sm); }
+    .modal .loading-text { text-align: center; color: var(--gray-500); padding: 10px; }
 
-    .modal-actions .btn-cancel {
-      background: var(--gray-100);
-      color: var(--gray-700);
-    }
-
-    .modal-actions .btn-cancel:hover {
-      background: var(--gray-300);
-    }
-
-    .modal-actions .btn-confirm {
-      background: var(--navy-500);
-      color: var(--white);
-    }
-
-    .modal-actions .btn-confirm:hover {
-      background: var(--navy-600);
-      box-shadow: var(--shadow-sm);
-    }
-
-    /* ===== Toast ===== */
+    /* Toast */
     .toast {
       position: fixed;
       bottom: 24px;
@@ -876,56 +442,75 @@
       max-width: 400px;
       font-size: 14px;
     }
-
-    .toast.show {
-      transform: translateX(0);
-    }
-
+    .toast.show { transform: translateX(0); }
     .toast.success { background: #38a169; }
     .toast.error { background: #e53e3e; }
     .toast.warning { background: #dd6b20; }
 
-    /* ===== Scrollbar ===== */
-    ::-webkit-scrollbar {
-      width: 6px;
-      height: 6px;
-    }
-    ::-webkit-scrollbar-track {
-      background: var(--gray-100);
-    }
-    ::-webkit-scrollbar-thumb {
-      background: var(--gray-300);
-      border-radius: 8px;
-    }
-    ::-webkit-scrollbar-thumb:hover {
-      background: var(--gray-500);
-    }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: var(--gray-100); }
+    ::-webkit-scrollbar-thumb { background: var(--gray-300); border-radius: 8px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--gray-500); }
   </style>
 </head>
 <body>
 
-  <!-- ===== SPLASH SCREEN ===== -->
+  <!-- Splash Screen -->
   <div id="splash">
    <div class="logo-mark" id="splashLogo">
-  <img src="logo.png" alt="PlagiScan" style="width:40px;height:40px;">
+  <img src="logo.png" alt="PlagiScan" style="width:100%;height:100%;object-fit:contain;">
 </div>
-
-<
     <h1>Plagi<span>Scan</span></h1>
-    <div class="loader">
-      <div class="loader-bar"></div>
+    <div class="loader"><div class="loader-bar"></div></div>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast" id="toast"></div>
+
+  <!-- URL Modal -->
+  <div class="modal-overlay" id="urlModal">
+    <div class="modal">
+      <h3>🌐 Fetch Content from URL</h3>
+      <p>Paste a URL to extract text content for <strong id="urlModalDocName">Document</strong></p>
+      <input type="url" id="urlModalInput" placeholder="https://example.com/article">
+      <div class="modal-actions">
+        <button class="btn-cancel" onclick="closeUrlModal()">Cancel</button>
+        <button class="btn-confirm" onclick="confirmUrlFetch()">📥 Fetch</button>
+      </div>
     </div>
   </div>
 
-  <!-- ===== TOAST ===== -->
-  <div class="toast" id="toast"></div>
+  <!-- Paste Text Modal -->
+  <div class="modal-overlay" id="pasteModal">
+    <div class="modal">
+      <h3>📝 Paste Text Content</h3>
+      <p>Paste or type text for <strong id="pasteModalDocName">Document</strong></p>
+      <textarea id="pasteModalInput" placeholder="Paste your text here..."></textarea>
+      <div class="modal-actions">
+        <button class="btn-cancel" onclick="closePasteModal()">Cancel</button>
+        <button class="btn-confirm" onclick="confirmPaste()">✅ Set Content</button>
+      </div>
+    </div>
+  </div>
 
-  <!-- ===== SAVE MODAL ===== -->
+  <!-- Content Preview Modal -->
+  <div class="modal-overlay" id="contentModal">
+    <div class="modal">
+      <h3>📄 Document Content</h3>
+      <p><strong id="contentModalDocName">Document</strong> - <span id="contentModalChars">0</span> characters</p>
+      <textarea id="contentModalText" readonly style="background:var(--gray-100);min-height:300px;"></textarea>
+      <div class="modal-actions">
+        <button class="btn-cancel" onclick="closeContentModal()">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Save Modal -->
   <div class="modal-overlay" id="saveModal">
     <div class="modal">
-      <h3>Save Scan</h3>
+      <h3>💾 Save Scan</h3>
       <p>Give this scan a name for easy reference.</p>
-      <input type="text" id="scanNameInput" placeholder="e.g., Research Paper Check" maxlength="50">
+      <input type="text" id="scanNameInput" placeholder="e.g., Research Paper Check">
       <div class="modal-actions">
         <button class="btn-cancel" onclick="closeSaveModal()">Cancel</button>
         <button class="btn-confirm" onclick="confirmSave()">Save</button>
@@ -933,12 +518,12 @@
     </div>
   </div>
 
-  <!-- ===== HISTORY MODAL ===== -->
+  <!-- History Modal -->
   <div class="modal-overlay" id="historyModal">
-    <div class="modal" style="max-width: 560px;">
-      <h3>Scan History</h3>
+    <div class="modal" style="max-width:600px;">
+      <h3>📋 Scan History</h3>
       <p>Your saved scans</p>
-      <div id="historyModalList" style="max-height: 400px; overflow-y: auto; margin-bottom: 16px;"></div>
+      <div id="historyModalList" style="max-height:400px;overflow-y:auto;margin-bottom:16px;"></div>
       <div class="modal-actions">
         <button class="btn-cancel" onclick="closeHistoryModal()">Close</button>
         <button class="btn-confirm" onclick="clearHistory()" style="background:#e53e3e;">Clear All</button>
@@ -946,19 +531,19 @@
     </div>
   </div>
 
-  <!-- ===== APP ===== -->
+  <!-- App -->
   <div class="app" id="app">
 
     <!-- Header -->
     <header class="header">
       <div class="header-left">
-        <div class="logo-icon" id="appLogo">P</div>
+      <div class="logo-icon" id="appLogo">
+  <img src="logo.png" alt="PlagiScan" style="width:100%;height:100%;object-fit:contain;">
+</div>
         <h1>Plagi<span>Scan</span></h1>
       </div>
       <div class="header-actions">
-        <button onclick="openHistoryModal()">
-          <span>📋</span> History <span id="historyBadge" style="background:var(--gray-100);padding:0 8px;border-radius:10px;font-size:12px;">0</span>
-        </button>
+        <button onclick="openHistoryModal()">📋 History <span id="historyBadge" style="background:var(--gray-100);padding:0 8px;border-radius:10px;font-size:12px;">0</span></button>
         <button onclick="exportHistory()">📤 Export</button>
       </div>
     </header>
@@ -966,34 +551,67 @@
     <!-- Main -->
     <main class="main">
 
-      <!-- URL Section -->
-      <div class="url-section">
-        <span class="url-icon">🔗</span>
-        <input type="url" id="urlInput" placeholder="Paste a URL to extract text content">
-        <button id="fetchUrlBtn" onclick="fetchUrlContent()">Extract</button>
-      </div>
-
-      <!-- Upload Grid -->
+      <!-- Document Grid -->
       <div class="upload-grid">
-        <div class="upload-box" id="drop1">
-          <div class="icon">📄</div>
-          <div class="label">Drop file here or <strong>click to browse</strong></div>
-          <div class="hint">Supports TXT, DOCX, PDF</div>
-          <input type="file" id="file1" accept=".txt,.docx,.pdf">
-          <div class="file-info">
-            <div class="file-name" id="file1-name"></div>
-            <div class="file-size" id="file1-size"></div>
+        <!-- Document A -->
+        <div class="doc-box" id="docBox1">
+          <div class="doc-header">
+            <h3>📄 Document A</h3>
+            <span class="badge" id="docBadge1">Empty</span>
+          </div>
+          <div class="doc-body">
+            <div class="upload-area" id="drop1">
+              <div class="icon">📤</div>
+              <div class="label">Drop file here or <strong>click to browse</strong></div>
+              <div style="font-size:12px;color:var(--gray-300);margin-top:4px;">TXT, PDF, DOCX</div>
+              <input type="file" id="file1" accept=".txt,.docx,.pdf">
+            </div>
+
+            <div class="doc-actions">
+              <button onclick="openUrlModal(1)"><span class="icon-sm">🌐</span> Search Online</button>
+              <button onclick="openPasteModal(1)"><span class="icon-sm">📝</span> Paste Text</button>
+              <button onclick="viewContent(1)"><span class="icon-sm">👁️</span> View Content</button>
+            </div>
+
+            <div class="file-info" id="fileInfo1" style="display:none;">
+              <div class="name" id="file1-name"></div>
+              <div class="meta" id="file1-size"></div>
+            </div>
+            <div class="content-preview" id="preview1">
+              <div id="previewText1"></div>
+              <div class="char-count" id="previewCount1"></div>
+            </div>
           </div>
         </div>
 
-        <div class="upload-box" id="drop2">
-          <div class="icon">📄</div>
-          <div class="label">Drop file here or <strong>click to browse</strong></div>
-          <div class="hint">Supports TXT, DOCX, PDF</div>
-          <input type="file" id="file2" accept=".txt,.docx,.pdf">
-          <div class="file-info">
-            <div class="file-name" id="file2-name"></div>
-            <div class="file-size" id="file2-size"></div>
+        <!-- Document B -->
+        <div class="doc-box" id="docBox2">
+          <div class="doc-header">
+            <h3>📄 Document B</h3>
+            <span class="badge" id="docBadge2">Empty</span>
+          </div>
+          <div class="doc-body">
+            <div class="upload-area" id="drop2">
+              <div class="icon">📤</div>
+              <div class="label">Drop file here or <strong>click to browse</strong></div>
+              <div style="font-size:12px;color:var(--gray-300);margin-top:4px;">TXT, PDF, DOCX</div>
+              <input type="file" id="file2" accept=".txt,.docx,.pdf">
+            </div>
+
+            <div class="doc-actions">
+              <button onclick="openUrlModal(2)"><span class="icon-sm">🌐</span> Search Online</button>
+              <button onclick="openPasteModal(2)"><span class="icon-sm">📝</span> Paste Text</button>
+              <button onclick="viewContent(2)"><span class="icon-sm">👁️</span> View Content</button>
+            </div>
+
+            <div class="file-info" id="fileInfo2" style="display:none;">
+              <div class="name" id="file2-name"></div>
+              <div class="meta" id="file2-size"></div>
+            </div>
+            <div class="content-preview" id="preview2">
+              <div id="previewText2"></div>
+              <div class="char-count" id="previewCount2"></div>
+            </div>
           </div>
         </div>
       </div>
@@ -1020,32 +638,28 @@
             </div>
             <span class="score-status" id="scoreStatus"></span>
           </div>
-
           <div class="result-stats">
-            <div class="stat-item">
-              <div class="label">Document 1</div>
-              <div class="value" id="doc1Stats">0 words</div>
-            </div>
-            <div class="stat-item">
-              <div class="label">Document 2</div>
-              <div class="value" id="doc2Stats">0 words</div>
-            </div>
-            <div class="stat-item">
-              <div class="label">Common Words</div>
-              <div class="value" id="commonCount">0</div>
-            </div>
-            <div class="stat-item">
-              <div class="label">Unique Words</div>
-              <div class="value" id="uniqueCount">0</div>
-            </div>
+            <div class="stat-item"><div class="label">Document A</div><div class="value" id="doc1Stats">0 words</div></div>
+            <div class="stat-item"><div class="label">Document B</div><div class="value" id="doc2Stats">0 words</div></div>
+            <div class="stat-item"><div class="label">Common Words</div><div class="value" id="commonCount">0</div></div>
+            <div class="stat-item"><div class="label">Unique Words</div><div class="value" id="uniqueCount">0</div></div>
           </div>
-
-          <div class="word-cloud" id="wordCloud">
-            <span class="title">Common Words</span>
-          </div>
-
+          <div class="word-cloud" id="wordCloud"><span class="title">Common Words</span></div>
           <div class="result-actions">
             <button class="btn-primary" onclick="openSaveModal()">💾 Save Scan</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- History Sidebar -->
+      <div class="history-sidebar">
+        <div class="history-header">
+          <h3>📋 Scan History</h3>
+          <span class="badge" id="historyBadge2">0</span>
+        </div>
+        <div class="history-list" id="historyList">
+          <div class="history-empty">
+            <p>No scans saved yet</p>
           </div>
         </div>
       </div>

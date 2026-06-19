@@ -1,5 +1,5 @@
-// ===== menu.js - Native Electron Menu =====
-const { Menu, shell } = require('electron');
+// ===== menu.js - Native Menu =====
+const { Menu, shell, app, BrowserWindow } = require('electron');
 
 function createMenu() {
   const template = [
@@ -10,29 +10,16 @@ function createMenu() {
           label: 'New Scan',
           accelerator: 'CmdOrCtrl+N',
           click: () => {
-            // Reset the app
             const win = BrowserWindow.getFocusedWindow();
-            win.webContents.executeJavaScript(`
-              file1Content = '';
-              file2Content = '';
-              document.getElementById('file1-name').textContent = '';
-              document.getElementById('file1-size').textContent = '';
-              document.getElementById('file2-name').textContent = '';
-              document.getElementById('file2-size').textContent = '';
-              document.getElementById('drop1').classList.remove('has-content');
-              document.getElementById('drop2').classList.remove('has-content');
-              document.getElementById('compareBtn').disabled = true;
-              document.getElementById('resultSection').classList.remove('visible');
-              showToast('New scan ready', 'success');
-            `);
+            win.webContents.send('new-scan');
           }
         },
         {
-          label: 'Export Results',
+          label: 'Export History',
           accelerator: 'CmdOrCtrl+E',
           click: () => {
             const win = BrowserWindow.getFocusedWindow();
-            win.webContents.executeJavaScript(`exportHistory()`);
+            win.webContents.send('export-history');
           }
         },
         { type: 'separator' },
@@ -82,18 +69,10 @@ function createMenu() {
       label: 'Help',
       submenu: [
         {
-          label: 'Learn More',
-          click: () => {
-            shell.openExternal('https://github.com/yourusername/plagiscan');
-          }
-        },
-        {
           label: 'About PlagiScan',
           click: () => {
             const win = BrowserWindow.getFocusedWindow();
-            win.webContents.executeJavaScript(`
-              showToast('PlagiScan v1.0 - Plagiarism Detection Tool', 'info', 5000);
-            `);
+            win.webContents.send('show-about');
           }
         }
       ]
