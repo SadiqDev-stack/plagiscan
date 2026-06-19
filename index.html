@@ -1,0 +1,952 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>PlagiScan - Plagiarism Checker</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --primary: #667eea;
+      --primary-dark: #5a67d8;
+      --secondary: #764ba2;
+      --success: #48bb78;
+      --warning: #ed8936;
+      --danger: #fc8181;
+      --dark: #2d3748;
+      --light: #f7fafc;
+      --gray: #a0aec0;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    /* Scrollbar Styling */
+    ::-webkit-scrollbar {
+      width: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 10px;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: var(--primary);
+      border-radius: 10px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--primary-dark);
+    }
+
+    .app-container {
+      max-width: 1400px;
+      margin: 0 auto;
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(10px);
+      border-radius: 24px;
+      padding: 30px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      animation: slideUp 0.6s ease-out;
+    }
+
+    @keyframes slideUp {
+      from {
+        opacity: 0;
+        transform: translateY(30px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    /* Header */
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding-bottom: 20px;
+      border-bottom: 2px solid #e2e8f0;
+      margin-bottom: 25px;
+      flex-wrap: wrap;
+      gap: 15px;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+    }
+
+    .logo {
+      width: 50px;
+      height: 50px;
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+      font-weight: bold;
+      color: white;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%,
+      100% {
+        transform: scale(1);
+      }
+      50% {
+        transform: scale(1.05);
+      }
+    }
+
+    .header h1 {
+      font-size: 32px;
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .header-subtitle {
+      color: var(--gray);
+      font-size: 14px;
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 10px;
+    }
+
+    .btn-icon {
+      background: rgba(102, 126, 234, 0.1);
+      border: none;
+      padding: 10px 15px;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: all 0.3s;
+      font-size: 16px;
+      color: var(--dark);
+    }
+
+    .btn-icon:hover {
+      background: var(--primary);
+      color: white;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+    }
+
+    /* Main Content Layout */
+    .main-content {
+      display: grid;
+      grid-template-columns: 1fr 300px;
+      gap: 25px;
+    }
+
+    @media (max-width: 1024px) {
+      .main-content {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Upload Section */
+    .upload-section {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .upload-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+
+    @media (max-width: 768px) {
+      .upload-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .upload-box {
+      border: 2px dashed #e2e8f0;
+      border-radius: 16px;
+      padding: 25px;
+      text-align: center;
+      transition: all 0.3s ease;
+      background: var(--light);
+      position: relative;
+      min-height: 200px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      cursor: pointer;
+    }
+
+    .upload-box:hover {
+      border-color: var(--primary);
+      background: rgba(102, 126, 234, 0.05);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(102, 126, 234, 0.1);
+    }
+
+    .upload-box.dragover {
+      border-color: var(--success);
+      background: rgba(72, 187, 120, 0.1);
+      transform: scale(1.02);
+    }
+
+    .upload-box.has-file {
+      border-color: var(--success);
+      background: rgba(72, 187, 120, 0.05);
+    }
+
+    .upload-icon {
+      font-size: 48px;
+      margin-bottom: 10px;
+      animation: float 3s ease-in-out infinite;
+    }
+
+    @keyframes float {
+      0%,
+      100% {
+        transform: translateY(0);
+      }
+      50% {
+        transform: translateY(-10px);
+      }
+    }
+
+    .upload-box label {
+      cursor: pointer;
+      color: var(--primary);
+      font-weight: 600;
+      font-size: 16px;
+    }
+
+    .upload-box input[type="file"] {
+      display: none;
+    }
+
+    .file-info {
+      margin-top: 12px;
+      font-size: 14px;
+      color: var(--dark);
+    }
+
+    .file-name {
+      font-weight: 600;
+      color: var(--success);
+    }
+
+    .file-size {
+      font-size: 12px;
+      color: var(--gray);
+      margin-top: 4px;
+    }
+
+    .file-status {
+      margin-top: 8px;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      display: inline-block;
+    }
+
+    .file-status.loaded {
+      background: rgba(72, 187, 120, 0.2);
+      color: var(--success);
+    }
+
+    .file-status.error {
+      background: rgba(252, 129, 129, 0.2);
+      color: var(--danger);
+    }
+
+    /* URL Input */
+    .url-input-container {
+      display: flex;
+      gap: 10px;
+      padding: 15px;
+      background: var(--light);
+      border-radius: 12px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .url-input-container input {
+      flex: 1;
+      padding: 12px 16px;
+      border: 2px solid #e2e8f0;
+      border-radius: 10px;
+      font-size: 14px;
+      transition: all 0.3s;
+      min-width: 200px;
+    }
+
+    .url-input-container input:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2);
+    }
+
+    .url-input-container button {
+      padding: 12px 24px;
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      color: white;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: all 0.3s;
+      white-space: nowrap;
+    }
+
+    .url-input-container button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+    }
+
+    .url-input-container button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    /* Compare Button */
+    .compare-btn {
+      width: 100%;
+      padding: 18px;
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      color: white;
+      border: none;
+      border-radius: 14px;
+      font-size: 18px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.3s;
+      margin: 10px 0;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .compare-btn:hover:not(:disabled) {
+      transform: translateY(-3px);
+      box-shadow: 0 8px 30px rgba(102, 126, 234, 0.4);
+    }
+
+    .compare-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .compare-btn .scan-text {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .compare-btn .scan-text .spinner {
+      display: none;
+      width: 20px;
+      height: 20px;
+      border: 3px solid rgba(255, 255, 255, 0.3);
+      border-top-color: white;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    .compare-btn.scanning .scan-text .spinner {
+      display: inline-block;
+    }
+
+    .compare-btn.scanning .scan-text .label {
+      animation: blink 1s infinite;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    @keyframes blink {
+      0%,
+      100% {
+        opacity: 1;
+      }
+      50% {
+        opacity: 0.5;
+      }
+    }
+
+    /* Result Section */
+    .result-section {
+      margin-top: 20px;
+      display: none;
+      animation: slideUp 0.5s ease;
+    }
+
+    .result-section.show {
+      display: block;
+    }
+
+    .result-card {
+      background: var(--light);
+      border-radius: 16px;
+      padding: 25px;
+      border-left: 5px solid var(--gray);
+    }
+
+    .result-card.high {
+      border-left-color: var(--danger);
+      background: rgba(252, 129, 129, 0.05);
+    }
+
+    .result-card.medium {
+      border-left-color: var(--warning);
+      background: rgba(237, 137, 54, 0.05);
+    }
+
+    .result-card.low {
+      border-left-color: var(--success);
+      background: rgba(72, 187, 120, 0.05);
+    }
+
+    .result-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 15px;
+      margin-bottom: 15px;
+    }
+
+    .score-container {
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+    }
+
+    .score-number {
+      font-size: 56px;
+      font-weight: 800;
+      color: var(--dark);
+      line-height: 1;
+    }
+
+    .score-label {
+      font-size: 16px;
+      color: var(--gray);
+    }
+
+    .score-status {
+      font-size: 18px;
+      font-weight: 600;
+    }
+
+    .result-stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 15px;
+      margin-top: 15px;
+      padding: 15px;
+      background: white;
+      border-radius: 12px;
+    }
+
+    .stat-item {
+      text-align: center;
+    }
+
+    .stat-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      color: var(--gray);
+      letter-spacing: 0.5px;
+    }
+
+    .stat-value {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--dark);
+      margin-top: 4px;
+    }
+
+    .word-cloud {
+      margin-top: 15px;
+      padding: 15px;
+      background: white;
+      border-radius: 12px;
+    }
+
+    .word-tag {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 20px;
+      margin: 3px;
+      font-size: 13px;
+      transition: all 0.3s;
+      cursor: default;
+    }
+
+    .word-tag:hover {
+      transform: scale(1.05);
+    }
+
+    .word-tag.level-1 {
+      background: #bee3f8;
+      color: #2b6cb0;
+    }
+    .word-tag.level-2 {
+      background: #b2f5ea;
+      color: #234e52;
+    }
+    .word-tag.level-3 {
+      background: #fbd38d;
+      color: #744210;
+    }
+    .word-tag.level-4 {
+      background: #feb2b2;
+      color: #742a2a;
+    }
+
+    .result-actions {
+      margin-top: 15px;
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .result-actions button {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: all 0.3s;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn-save {
+      background: var(--success);
+      color: white;
+    }
+
+    .btn-save:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 15px rgba(72, 187, 120, 0.3);
+    }
+
+    /* Sidebar - History */
+    .sidebar {
+      background: var(--light);
+      border-radius: 16px;
+      padding: 20px;
+      max-height: 600px;
+      overflow-y: auto;
+    }
+
+    .sidebar-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--dark);
+      margin-bottom: 15px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .sidebar-title .count {
+      font-size: 12px;
+      background: var(--gray);
+      color: white;
+      padding: 2px 10px;
+      border-radius: 20px;
+    }
+
+    .history-item {
+      background: white;
+      border-radius: 12px;
+      padding: 15px;
+      margin-bottom: 10px;
+      cursor: pointer;
+      transition: all 0.3s;
+      border-left: 3px solid var(--gray);
+      position: relative;
+    }
+
+    .history-item:hover {
+      transform: translateX(5px);
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+    }
+
+    .history-item.high {
+      border-left-color: var(--danger);
+    }
+    .history-item.medium {
+      border-left-color: var(--warning);
+    }
+    .history-item.low {
+      border-left-color: var(--success);
+    }
+
+    .history-item .h-name {
+      font-weight: 600;
+      color: var(--dark);
+      font-size: 14px;
+    }
+
+    .history-item .h-score {
+      font-size: 20px;
+      font-weight: 700;
+    }
+
+    .history-item .h-date {
+      font-size: 11px;
+      color: var(--gray);
+      margin-top: 4px;
+    }
+
+    .history-item .h-delete {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      background: none;
+      border: none;
+      color: var(--gray);
+      cursor: pointer;
+      font-size: 16px;
+      transition: all 0.3s;
+      padding: 4px 8px;
+      border-radius: 6px;
+    }
+
+    .history-item .h-delete:hover {
+      background: rgba(252, 129, 129, 0.2);
+      color: var(--danger);
+    }
+
+    .history-empty {
+      text-align: center;
+      color: var(--gray);
+      padding: 30px 0;
+    }
+
+    .history-empty .empty-icon {
+      font-size: 48px;
+      margin-bottom: 10px;
+      opacity: 0.5;
+    }
+
+    /* Save Modal */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.5);
+      backdrop-filter: blur(5px);
+      z-index: 1000;
+      justify-content: center;
+      align-items: center;
+      animation: fadeIn 0.3s ease;
+    }
+
+    .modal-overlay.show {
+      display: flex;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+      }
+      to {
+        opacity: 1;
+      }
+    }
+
+    .modal {
+      background: white;
+      border-radius: 20px;
+      padding: 30px;
+      max-width: 450px;
+      width: 90%;
+      animation: scaleIn 0.3s ease;
+    }
+
+    @keyframes scaleIn {
+      from {
+        transform: scale(0.9);
+        opacity: 0;
+      }
+      to {
+        transform: scale(1);
+        opacity: 1;
+      }
+    }
+
+    .modal h3 {
+      font-size: 22px;
+      margin-bottom: 10px;
+      color: var(--dark);
+    }
+
+    .modal p {
+      color: var(--gray);
+      margin-bottom: 20px;
+    }
+
+    .modal input {
+      width: 100%;
+      padding: 12px 16px;
+      border: 2px solid #e2e8f0;
+      border-radius: 10px;
+      font-size: 14px;
+      margin-bottom: 15px;
+    }
+
+    .modal input:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2);
+    }
+
+    .modal-actions {
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+    }
+
+    .modal-actions button {
+      padding: 10px 24px;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: all 0.3s;
+    }
+
+    .modal-actions .btn-cancel {
+      background: #e2e8f0;
+      color: var(--dark);
+    }
+
+    .modal-actions .btn-cancel:hover {
+      background: #cbd5e0;
+    }
+
+    .modal-actions .btn-confirm {
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      color: white;
+    }
+
+    .modal-actions .btn-confirm:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+    }
+
+    /* Toast Notification */
+    .toast {
+      position: fixed;
+      bottom: 30px;
+      right: 30px;
+      background: var(--dark);
+      color: white;
+      padding: 15px 25px;
+      border-radius: 12px;
+      transform: translateX(120%);
+      transition: transform 0.4s ease;
+      z-index: 2000;
+      max-width: 350px;
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
+    }
+
+    .toast.show {
+      transform: translateX(0);
+    }
+
+    .toast.success {
+      background: var(--success);
+    }
+    .toast.error {
+      background: var(--danger);
+    }
+    .toast.warning {
+      background: var(--warning);
+    }
+
+    /* Responsive */
+    @media (max-width: 600px) {
+      .app-container {
+        padding: 15px;
+      }
+      .header h1 {
+        font-size: 24px;
+      }
+      .score-number {
+        font-size: 40px;
+      }
+      .result-stats {
+        grid-template-columns: 1fr 1fr;
+      }
+      .modal {
+        padding: 20px;
+      }
+      .upload-box {
+        min-height: 150px;
+        padding: 15px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Toast Notification -->
+  <div class="toast" id="toast"></div>
+
+  <!-- Save Modal -->
+  <div class="modal-overlay" id="saveModal">
+    <div class="modal">
+      <h3>💾 Save Scan Result</h3>
+      <p>Give this scan a name so you can find it later.</p>
+      <input type="text" id="scanNameInput" placeholder="e.g., My Essay Check" maxlength="50">
+      <div class="modal-actions">
+        <button class="btn-cancel" onclick="closeSaveModal()">Cancel</button>
+        <button class="btn-confirm" onclick="confirmSave()">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="app-container">
+    <!-- Header -->
+    <header class="header">
+      <div class="header-left">
+        <div class="logo">P</div>
+        <div>
+          <h1>PlagiScan</h1>
+          <span class="header-subtitle">Advanced Plagiarism Detection</span>
+        </div>
+      </div>
+      <div class="header-actions">
+        <button class="btn-icon" onclick="clearHistory()" title="Clear All History">🗑️</button>
+        <button class="btn-icon" onclick="exportHistory()" title="Export History">📤</button>
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <div class="main-content">
+      <!-- Left Column -->
+      <div class="upload-section">
+        <!-- URL Input -->
+        <div class="url-input-container">
+          <span>🔗</span>
+          <input type="url" id="urlInput" placeholder="Paste URL to extract text (e.g., https://example.com/article)">
+          <button id="fetchUrlBtn" onclick="fetchUrlContent()">📥 Extract</button>
+        </div>
+
+        <!-- Upload Grid -->
+        <div class="upload-grid">
+          <div class="upload-box" id="drop1">
+            <div class="upload-icon">📄</div>
+            <label for="file1">Drop File 1 or Click</label>
+            <input type="file" id="file1" accept=".txt,.docx,.pdf">
+            <div class="file-info">
+              <div class="file-name" id="file1-name"></div>
+              <div class="file-size" id="file1-size"></div>
+            </div>
+          </div>
+
+          <div class="upload-box" id="drop2">
+            <div class="upload-icon">📄</div>
+            <label for="file2">Drop File 2 or Click</label>
+            <input type="file" id="file2" accept=".txt,.docx,.pdf">
+            <div class="file-info">
+              <div class="file-name" id="file2-name"></div>
+              <div class="file-size" id="file2-size"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Compare Button -->
+        <button class="compare-btn" id="compareBtn" disabled>
+          <span class="scan-text">
+            <span class="spinner"></span>
+            <span class="label">🔍 Compare Documents</span>
+          </span>
+        </button>
+
+        <!-- Result Section -->
+        <div class="result-section" id="resultSection">
+          <div class="result-card" id="resultCard">
+            <div class="result-header">
+              <div class="score-container">
+                <span class="score-number" id="scoreNumber">0%</span>
+                <span class="score-label">Similarity</span>
+              </div>
+              <span class="score-status" id="scoreStatus"></span>
+            </div>
+
+            <div class="result-stats">
+              <div class="stat-item">
+                <div class="stat-label">Document 1</div>
+                <div class="stat-value" id="doc1Stats">0 words</div>
+              </div>
+              <div class="stat-item">
+                <div class="stat-label">Document 2</div>
+                <div class="stat-value" id="doc2Stats">0 words</div>
+              </div>
+              <div class="stat-item">
+                <div class="stat-label">Common Words</div>
+                <div class="stat-value" id="commonCount">0</div>
+              </div>
+              <div class="stat-item">
+                <div class="stat-label">Unique Words</div>
+                <div class="stat-value" id="uniqueCount">0</div>
+              </div>
+            </div>
+
+            <div class="word-cloud" id="wordCloud"></div>
+
+            <div class="result-actions">
+              <button class="btn-save" onclick="openSaveModal()">💾 Save Scan</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sidebar - History -->
+      <div class="sidebar">
+        <div class="sidebar-title">
+          📋 Scan History
+          <span class="count" id="historyCount">0</span>
+        </div>
+        <div id="historyList">
+          <div class="history-empty">
+            <div class="empty-icon">🔍</div>
+            <p>No scans saved yet</p>
+            <p style="font-size:12px;margin-top:5px;">Run a comparison and save it here</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="renderer.js"></script>
+</body>
+</html>
