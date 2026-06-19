@@ -21,7 +21,9 @@
       "index.html",
       "renderer.js",
       "preload.js",
-      "menu.js"
+      "menu.js",
+      "icon.ico",
+      "logo.png"
     ],
     "win": {
       "target": ["nsis", "portable"]
