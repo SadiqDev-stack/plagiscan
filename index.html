@@ -1,8 +1,11 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>PlagiScan - Plagiarism Checker</title>
-  <style>
+  <title>PlagiScan - Plagiarism Detection</title>
+   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+   <style>
+    /* ===== CSS Reset & Base ===== */
     * {
       margin: 0;
       padding: 0;
@@ -10,520 +13,597 @@
     }
 
     :root {
-      --primary: #667eea;
-      --primary-dark: #5a67d8;
-      --secondary: #764ba2;
-      --success: #48bb78;
-      --warning: #ed8936;
-      --danger: #fc8181;
-      --dark: #2d3748;
-      --light: #f7fafc;
-      --gray: #a0aec0;
+      --navy-900: #0a1628;
+      --navy-800: #0f2040;
+      --navy-700: #1a2f4f;
+      --navy-600: #2a4a7f;
+      --navy-500: #3b6cb0;
+      --navy-400: #4a8bc2;
+      --gray-900: #1a1a2e;
+      --gray-700: #2d3748;
+      --gray-500: #718096;
+      --gray-300: #cbd5e0;
+      --gray-100: #f0f4f8;
+      --white: #ffffff;
+      --shadow-sm: 0 2px 8px rgba(10, 22, 40, 0.08);
+      --shadow-md: 0 4px 20px rgba(10, 22, 40, 0.12);
+      --shadow-lg: 0 8px 40px rgba(10, 22, 40, 0.16);
+      --shadow-xl: 0 16px 60px rgba(10, 22, 40, 0.2);
+      --radius: 12px;
+      --radius-lg: 20px;
+      --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
     body {
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background: var(--navy-900);
+      color: var(--gray-700);
       min-height: 100vh;
-      padding: 20px;
+      overflow-x: hidden;
     }
 
-    /* Scrollbar Styling */
-    ::-webkit-scrollbar {
-      width: 8px;
-    }
-    ::-webkit-scrollbar-track {
-      background: rgba(255, 255, 255, 0.1);
-      border-radius: 10px;
-    }
-    ::-webkit-scrollbar-thumb {
-      background: var(--primary);
-      border-radius: 10px;
-    }
-    ::-webkit-scrollbar-thumb:hover {
-      background: var(--primary-dark);
-    }
-
-    .app-container {
-      max-width: 1400px;
-      margin: 0 auto;
-      background: rgba(255, 255, 255, 0.95);
-      backdrop-filter: blur(10px);
-      border-radius: 24px;
-      padding: 30px;
-      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-      animation: slideUp 0.6s ease-out;
+    /* ===== Splash Screen ===== */
+    #splash {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: var(--navy-900);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      transition: opacity 0.8s ease, visibility 0.8s ease;
     }
 
-    @keyframes slideUp {
-      from {
-        opacity: 0;
-        transform: translateY(30px);
-      }
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
+    #splash.hide {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
     }
 
-    /* Header */
+    #splash .logo-mark {
+      width: 80px;
+      height: 80px;
+      background: linear-gradient(135deg, var(--navy-400), var(--navy-600));
+      border-radius: var(--radius-lg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 40px;
+      font-weight: 700;
+      color: var(--white);
+      margin-bottom: 24px;
+      box-shadow: 0 8px 40px rgba(59, 108, 176, 0.3);
+      animation: pulseLogo 2s ease-in-out infinite;
+    }
+
+    @keyframes pulseLogo {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+    }
+
+    #splash h1 {
+      color: var(--white);
+      font-size: 32px;
+      font-weight: 300;
+      letter-spacing: 2px;
+    }
+
+    #splash h1 strong {
+      font-weight: 700;
+      color: var(--navy-400);
+    }
+
+    #splash .loader {
+      margin-top: 32px;
+      width: 200px;
+      height: 3px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    #splash .loader-bar {
+      height: 100%;
+      width: 0;
+      background: linear-gradient(90deg, var(--navy-400), var(--navy-600));
+      border-radius: 4px;
+      animation: loadBar 1.2s ease-in-out forwards;
+    }
+
+    @keyframes loadBar {
+      0% { width: 0; }
+      100% { width: 100%; }
+    }
+
+    /* ===== App Layout ===== */
+    .app {
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+      background: var(--gray-100);
+      opacity: 0;
+      transition: opacity 0.6s ease;
+    }
+
+    .app.ready {
+      opacity: 1;
+    }
+
+    /* ===== Header ===== */
     .header {
+      background: var(--white);
+      padding: 16px 32px;
+      box-shadow: var(--shadow-sm);
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding-bottom: 20px;
-      border-bottom: 2px solid #e2e8f0;
-      margin-bottom: 25px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
       flex-wrap: wrap;
-      gap: 15px;
+      gap: 12px;
     }
 
     .header-left {
       display: flex;
       align-items: center;
-      gap: 15px;
+      gap: 16px;
     }
 
-    .logo {
-      width: 50px;
-      height: 50px;
-      background: linear-gradient(135deg, var(--primary), var(--secondary));
-      border-radius: 12px;
+    .logo-icon {
+      width: 40px;
+      height: 40px;
+      background: linear-gradient(135deg, var(--navy-500), var(--navy-700));
+      border-radius: var(--radius);
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 28px;
-      font-weight: bold;
-      color: white;
-      animation: pulse 2s infinite;
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--white);
+      flex-shrink: 0;
     }
 
-    @keyframes pulse {
-      0%,
-      100% {
-        transform: scale(1);
-      }
-      50% {
-        transform: scale(1.05);
-      }
+    .logo-icon img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      border-radius: var(--radius);
     }
 
     .header h1 {
-      font-size: 32px;
-      background: linear-gradient(135deg, var(--primary), var(--secondary));
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
+      font-size: 22px;
+      font-weight: 600;
+      color: var(--navy-900);
+      letter-spacing: -0.5px;
     }
 
-    .header-subtitle {
-      color: var(--gray);
-      font-size: 14px;
+    .header h1 span {
+      font-weight: 300;
+      color: var(--gray-500);
     }
 
     .header-actions {
       display: flex;
-      gap: 10px;
+      gap: 8px;
     }
 
-    .btn-icon {
-      background: rgba(102, 126, 234, 0.1);
+    .header-actions button {
+      background: transparent;
       border: none;
-      padding: 10px 15px;
-      border-radius: 10px;
+      padding: 8px 14px;
+      border-radius: var(--radius);
       cursor: pointer;
-      transition: all 0.3s;
-      font-size: 16px;
-      color: var(--dark);
-    }
-
-    .btn-icon:hover {
-      background: var(--primary);
-      color: white;
-      transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
-    }
-
-    /* Main Content Layout */
-    .main-content {
-      display: grid;
-      grid-template-columns: 1fr 300px;
-      gap: 25px;
-    }
-
-    @media (max-width: 1024px) {
-      .main-content {
-        grid-template-columns: 1fr;
-      }
-    }
-
-    /* Upload Section */
-    .upload-section {
+      font-size: 14px;
+      color: var(--gray-500);
+      transition: var(--transition);
       display: flex;
-      flex-direction: column;
-      gap: 20px;
+      align-items: center;
+      gap: 6px;
     }
 
+    .header-actions button:hover {
+      background: var(--gray-100);
+      color: var(--navy-700);
+    }
+
+    /* ===== Main Content ===== */
+    .main {
+      flex: 1;
+      padding: 32px;
+      max-width: 1400px;
+      margin: 0 auto;
+      width: 100%;
+    }
+
+    /* ===== Upload Section ===== */
     .upload-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 20px;
+      gap: 24px;
+      margin-bottom: 24px;
     }
 
     @media (max-width: 768px) {
       .upload-grid {
         grid-template-columns: 1fr;
       }
+      .main {
+        padding: 16px;
+      }
+      .header {
+        padding: 12px 16px;
+      }
     }
 
     .upload-box {
-      border: 2px dashed #e2e8f0;
-      border-radius: 16px;
-      padding: 25px;
+      background: var(--white);
+      border-radius: var(--radius-lg);
+      padding: 40px 24px;
       text-align: center;
-      transition: all 0.3s ease;
-      background: var(--light);
-      position: relative;
+      cursor: pointer;
+      transition: var(--transition);
+      box-shadow: var(--shadow-sm);
       min-height: 200px;
       display: flex;
       flex-direction: column;
-      justify-content: center;
       align-items: center;
-      cursor: pointer;
+      justify-content: center;
+      border: 2px solid transparent;
+      position: relative;
     }
 
     .upload-box:hover {
-      border-color: var(--primary);
-      background: rgba(102, 126, 234, 0.05);
+      box-shadow: var(--shadow-md);
       transform: translateY(-2px);
-      box-shadow: 0 8px 25px rgba(102, 126, 234, 0.1);
     }
 
     .upload-box.dragover {
-      border-color: var(--success);
-      background: rgba(72, 187, 120, 0.1);
-      transform: scale(1.02);
+      border-color: var(--navy-400);
+      background: rgba(59, 108, 176, 0.04);
+      box-shadow: var(--shadow-md);
     }
 
-    .upload-box.has-file {
-      border-color: var(--success);
-      background: rgba(72, 187, 120, 0.05);
+    .upload-box.has-content {
+      border-color: var(--navy-400);
+      background: rgba(59, 108, 176, 0.03);
     }
 
-    .upload-icon {
-      font-size: 48px;
-      margin-bottom: 10px;
-      animation: float 3s ease-in-out infinite;
+    .upload-box .icon {
+      font-size: 40px;
+      color: var(--gray-300);
+      margin-bottom: 12px;
+      transition: var(--transition);
     }
 
-    @keyframes float {
-      0%,
-      100% {
-        transform: translateY(0);
-      }
-      50% {
-        transform: translateY(-10px);
-      }
+    .upload-box.has-content .icon {
+      color: var(--navy-400);
     }
 
-    .upload-box label {
-      cursor: pointer;
-      color: var(--primary);
+    .upload-box .label {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--gray-500);
+      margin-bottom: 4px;
+    }
+
+    .upload-box .label strong {
+      color: var(--navy-500);
       font-weight: 600;
-      font-size: 16px;
+    }
+
+    .upload-box .hint {
+      font-size: 13px;
+      color: var(--gray-300);
+    }
+
+    .upload-box .file-info {
+      margin-top: 12px;
+      font-size: 14px;
+      color: var(--gray-700);
+    }
+
+    .upload-box .file-name {
+      font-weight: 600;
+      color: var(--navy-600);
+    }
+
+    .upload-box .file-size {
+      font-size: 12px;
+      color: var(--gray-500);
+      margin-top: 4px;
+    }
+
+    .upload-box .file-status {
+      margin-top: 8px;
+      padding: 4px 16px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 500;
+      display: inline-block;
+    }
+
+    .upload-box .file-status.loaded {
+      background: rgba(59, 108, 176, 0.1);
+      color: var(--navy-500);
+    }
+
+    .upload-box .file-status.error {
+      background: rgba(229, 62, 62, 0.1);
+      color: #e53e3e;
     }
 
     .upload-box input[type="file"] {
       display: none;
     }
 
-    .file-info {
-      margin-top: 12px;
-      font-size: 14px;
-      color: var(--dark);
-    }
-
-    .file-name {
-      font-weight: 600;
-      color: var(--success);
-    }
-
-    .file-size {
-      font-size: 12px;
-      color: var(--gray);
-      margin-top: 4px;
-    }
-
-    .file-status {
-      margin-top: 8px;
-      padding: 4px 12px;
-      border-radius: 20px;
-      font-size: 12px;
-      font-weight: 600;
-      display: inline-block;
-    }
-
-    .file-status.loaded {
-      background: rgba(72, 187, 120, 0.2);
-      color: var(--success);
-    }
-
-    .file-status.error {
-      background: rgba(252, 129, 129, 0.2);
-      color: var(--danger);
-    }
-
-    /* URL Input */
-    .url-input-container {
+    /* ===== URL Input ===== */
+    .url-section {
+      background: var(--white);
+      border-radius: var(--radius-lg);
+      padding: 16px 20px;
+      box-shadow: var(--shadow-sm);
       display: flex;
-      gap: 10px;
-      padding: 15px;
-      background: var(--light);
-      border-radius: 12px;
+      gap: 12px;
       align-items: center;
+      margin-bottom: 24px;
       flex-wrap: wrap;
     }
 
-    .url-input-container input {
+    .url-section .url-icon {
+      color: var(--gray-400);
+      font-size: 18px;
+      flex-shrink: 0;
+    }
+
+    .url-section input {
       flex: 1;
-      padding: 12px 16px;
-      border: 2px solid #e2e8f0;
-      border-radius: 10px;
+      padding: 10px 14px;
+      border: 1px solid var(--gray-300);
+      border-radius: var(--radius);
       font-size: 14px;
-      transition: all 0.3s;
+      transition: var(--transition);
       min-width: 200px;
+      background: var(--gray-100);
+      color: var(--gray-700);
     }
 
-    .url-input-container input:focus {
+    .url-section input:focus {
       outline: none;
-      border-color: var(--primary);
-      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2);
+      border-color: var(--navy-400);
+      background: var(--white);
+      box-shadow: 0 0 0 3px rgba(59, 108, 176, 0.1);
     }
 
-    .url-input-container button {
-      padding: 12px 24px;
-      background: linear-gradient(135deg, var(--primary), var(--secondary));
-      color: white;
+    .url-section input::placeholder {
+      color: var(--gray-300);
+    }
+
+    .url-section button {
+      padding: 10px 24px;
+      background: var(--navy-500);
+      color: var(--white);
       border: none;
-      border-radius: 10px;
+      border-radius: var(--radius);
       cursor: pointer;
-      font-weight: 600;
-      transition: all 0.3s;
+      font-weight: 500;
+      font-size: 14px;
+      transition: var(--transition);
       white-space: nowrap;
     }
 
-    .url-input-container button:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+    .url-section button:hover {
+      background: var(--navy-600);
+      box-shadow: var(--shadow-sm);
     }
 
-    .url-input-container button:disabled {
+    .url-section button:disabled {
       opacity: 0.5;
       cursor: not-allowed;
-      transform: none;
     }
 
-    /* Compare Button */
+    /* ===== Compare Button ===== */
+    .compare-wrap {
+      margin-bottom: 24px;
+    }
+
     .compare-btn {
       width: 100%;
-      padding: 18px;
-      background: linear-gradient(135deg, var(--primary), var(--secondary));
-      color: white;
+      padding: 16px;
+      background: var(--navy-700);
+      color: var(--white);
       border: none;
-      border-radius: 14px;
-      font-size: 18px;
-      font-weight: 700;
+      border-radius: var(--radius-lg);
+      font-size: 16px;
+      font-weight: 600;
       cursor: pointer;
-      transition: all 0.3s;
-      margin: 10px 0;
+      transition: var(--transition);
       position: relative;
       overflow: hidden;
     }
 
     .compare-btn:hover:not(:disabled) {
-      transform: translateY(-3px);
-      box-shadow: 0 8px 30px rgba(102, 126, 234, 0.4);
+      background: var(--navy-800);
+      box-shadow: var(--shadow-md);
+      transform: translateY(-1px);
     }
 
     .compare-btn:disabled {
-      opacity: 0.5;
+      opacity: 0.4;
       cursor: not-allowed;
       transform: none;
     }
 
-    .compare-btn .scan-text {
+    .compare-btn .scan-indicator {
       display: inline-flex;
       align-items: center;
       gap: 10px;
     }
 
-    .compare-btn .scan-text .spinner {
+    .compare-btn .scan-indicator .dot {
       display: none;
-      width: 20px;
-      height: 20px;
-      border: 3px solid rgba(255, 255, 255, 0.3);
-      border-top-color: white;
+      width: 8px;
+      height: 8px;
       border-radius: 50%;
-      animation: spin 0.8s linear infinite;
+      background: var(--white);
+      animation: dotPulse 1s ease-in-out infinite;
     }
 
-    .compare-btn.scanning .scan-text .spinner {
+    .compare-btn.scanning .scan-indicator .dot {
       display: inline-block;
     }
 
-    .compare-btn.scanning .scan-text .label {
-      animation: blink 1s infinite;
+    .compare-btn.scanning .scan-indicator .dot:nth-child(2) {
+      animation-delay: 0.2s;
+    }
+    .compare-btn.scanning .scan-indicator .dot:nth-child(3) {
+      animation-delay: 0.4s;
     }
 
-    @keyframes spin {
-      to {
-        transform: rotate(360deg);
-      }
+    @keyframes dotPulse {
+      0%, 100% { opacity: 0.3; transform: scale(0.8); }
+      50% { opacity: 1; transform: scale(1.2); }
     }
 
-    @keyframes blink {
-      0%,
-      100% {
-        opacity: 1;
-      }
-      50% {
-        opacity: 0.5;
-      }
-    }
-
-    /* Result Section */
+    /* ===== Result Section ===== */
     .result-section {
-      margin-top: 20px;
       display: none;
-      animation: slideUp 0.5s ease;
+      animation: fadeSlide 0.5s ease;
     }
 
-    .result-section.show {
+    .result-section.visible {
       display: block;
     }
 
+    @keyframes fadeSlide {
+      from {
+        opacity: 0;
+        transform: translateY(16px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
     .result-card {
-      background: var(--light);
-      border-radius: 16px;
-      padding: 25px;
-      border-left: 5px solid var(--gray);
-    }
-
-    .result-card.high {
-      border-left-color: var(--danger);
-      background: rgba(252, 129, 129, 0.05);
-    }
-
-    .result-card.medium {
-      border-left-color: var(--warning);
-      background: rgba(237, 137, 54, 0.05);
-    }
-
-    .result-card.low {
-      border-left-color: var(--success);
-      background: rgba(72, 187, 120, 0.05);
+      background: var(--white);
+      border-radius: var(--radius-lg);
+      padding: 28px;
+      box-shadow: var(--shadow-md);
     }
 
     .result-header {
       display: flex;
       justify-content: space-between;
-      align-items: center;
+      align-items: flex-start;
       flex-wrap: wrap;
-      gap: 15px;
-      margin-bottom: 15px;
+      gap: 16px;
+      margin-bottom: 20px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid var(--gray-100);
     }
 
-    .score-container {
+    .score-block {
       display: flex;
       align-items: baseline;
-      gap: 10px;
+      gap: 8px;
     }
 
     .score-number {
       font-size: 56px;
-      font-weight: 800;
-      color: var(--dark);
+      font-weight: 700;
+      color: var(--navy-900);
       line-height: 1;
+      letter-spacing: -2px;
     }
 
     .score-label {
-      font-size: 16px;
-      color: var(--gray);
+      font-size: 14px;
+      color: var(--gray-500);
+      font-weight: 400;
     }
 
     .score-status {
-      font-size: 18px;
-      font-weight: 600;
+      font-size: 16px;
+      font-weight: 500;
     }
+
+    .score-status.high { color: #e53e3e; }
+    .score-status.medium { color: #dd6b20; }
+    .score-status.low { color: #38a169; }
 
     .result-stats {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-      gap: 15px;
-      margin-top: 15px;
-      padding: 15px;
-      background: white;
-      border-radius: 12px;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 16px;
+      margin-bottom: 20px;
     }
 
     .stat-item {
       text-align: center;
+      padding: 12px;
+      background: var(--gray-100);
+      border-radius: var(--radius);
     }
 
-    .stat-label {
+    .stat-item .label {
       font-size: 11px;
       text-transform: uppercase;
-      color: var(--gray);
       letter-spacing: 0.5px;
+      color: var(--gray-500);
+      font-weight: 600;
     }
 
-    .stat-value {
-      font-size: 18px;
+    .stat-item .value {
+      font-size: 20px;
       font-weight: 700;
-      color: var(--dark);
+      color: var(--navy-900);
       margin-top: 4px;
     }
 
     .word-cloud {
-      margin-top: 15px;
-      padding: 15px;
-      background: white;
-      border-radius: 12px;
+      padding: 16px;
+      background: var(--gray-100);
+      border-radius: var(--radius);
+      margin-bottom: 20px;
+      min-height: 60px;
+    }
+
+    .word-cloud .title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--gray-500);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 10px;
+      display: block;
     }
 
     .word-tag {
       display: inline-block;
-      padding: 4px 12px;
+      padding: 4px 14px;
       border-radius: 20px;
       margin: 3px;
       font-size: 13px;
-      transition: all 0.3s;
-      cursor: default;
+      font-weight: 500;
+      transition: var(--transition);
     }
 
     .word-tag:hover {
       transform: scale(1.05);
     }
 
-    .word-tag.level-1 {
-      background: #bee3f8;
-      color: #2b6cb0;
-    }
-    .word-tag.level-2 {
-      background: #b2f5ea;
-      color: #234e52;
-    }
-    .word-tag.level-3 {
-      background: #fbd38d;
-      color: #744210;
-    }
-    .word-tag.level-4 {
-      background: #feb2b2;
-      color: #742a2a;
-    }
+    .word-tag.level-1 { background: #bee3f8; color: #2a4365; }
+    .word-tag.level-2 { background: #c6f6d5; color: #22543d; }
+    .word-tag.level-3 { background: #fbd38d; color: #744210; }
+    .word-tag.level-4 { background: #feb2b2; color: #742a2a; }
 
     .result-actions {
-      margin-top: 15px;
       display: flex;
       gap: 10px;
       flex-wrap: wrap;
@@ -532,127 +612,143 @@
     .result-actions button {
       padding: 10px 20px;
       border: none;
-      border-radius: 10px;
+      border-radius: var(--radius);
       cursor: pointer;
-      font-weight: 600;
-      transition: all 0.3s;
+      font-weight: 500;
+      font-size: 14px;
+      transition: var(--transition);
       display: flex;
       align-items: center;
       gap: 8px;
     }
 
-    .btn-save {
-      background: var(--success);
-      color: white;
+    .btn-primary {
+      background: var(--navy-500);
+      color: var(--white);
     }
 
-    .btn-save:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 4px 15px rgba(72, 187, 120, 0.3);
+    .btn-primary:hover {
+      background: var(--navy-600);
+      box-shadow: var(--shadow-sm);
     }
 
-    /* Sidebar - History */
-    .sidebar {
-      background: var(--light);
-      border-radius: 16px;
+    /* ===== History Sidebar ===== */
+    .history-sidebar {
+      background: var(--white);
+      border-radius: var(--radius-lg);
       padding: 20px;
-      max-height: 600px;
-      overflow-y: auto;
+      box-shadow: var(--shadow-sm);
+      margin-top: 24px;
     }
 
-    .sidebar-title {
-      font-size: 18px;
-      font-weight: 700;
-      color: var(--dark);
-      margin-bottom: 15px;
+    .history-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
+      margin-bottom: 16px;
     }
 
-    .sidebar-title .count {
-      font-size: 12px;
-      background: var(--gray);
-      color: white;
-      padding: 2px 10px;
+    .history-header h3 {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--navy-900);
+    }
+
+    .history-header .badge {
+      background: var(--gray-100);
+      color: var(--gray-500);
+      padding: 2px 12px;
       border-radius: 20px;
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    .history-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      max-height: 300px;
+      overflow-y: auto;
     }
 
     .history-item {
-      background: white;
-      border-radius: 12px;
-      padding: 15px;
-      margin-bottom: 10px;
+      background: var(--gray-100);
+      border-radius: var(--radius);
+      padding: 14px 16px;
       cursor: pointer;
-      transition: all 0.3s;
-      border-left: 3px solid var(--gray);
-      position: relative;
+      transition: var(--transition);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
     }
 
     .history-item:hover {
-      transform: translateX(5px);
-      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+      background: rgba(59, 108, 176, 0.06);
+      transform: translateX(4px);
     }
 
-    .history-item.high {
-      border-left-color: var(--danger);
-    }
-    .history-item.medium {
-      border-left-color: var(--warning);
-    }
-    .history-item.low {
-      border-left-color: var(--success);
+    .history-item .info {
+      flex: 1;
+      min-width: 0;
     }
 
-    .history-item .h-name {
+    .history-item .name {
       font-weight: 600;
-      color: var(--dark);
+      color: var(--navy-900);
       font-size: 14px;
     }
 
-    .history-item .h-score {
+    .history-item .meta {
+      font-size: 12px;
+      color: var(--gray-500);
+      margin-top: 2px;
+    }
+
+    .history-item .score {
       font-size: 20px;
       font-weight: 700;
+      flex-shrink: 0;
     }
 
-    .history-item .h-date {
-      font-size: 11px;
-      color: var(--gray);
-      margin-top: 4px;
-    }
+    .history-item .score.high { color: #e53e3e; }
+    .history-item .score.medium { color: #dd6b20; }
+    .history-item .score.low { color: #38a169; }
 
-    .history-item .h-delete {
-      position: absolute;
-      top: 8px;
-      right: 8px;
-      background: none;
+    .history-item .delete-btn {
+      background: transparent;
       border: none;
-      color: var(--gray);
+      color: var(--gray-300);
       cursor: pointer;
-      font-size: 16px;
-      transition: all 0.3s;
       padding: 4px 8px;
       border-radius: 6px;
+      transition: var(--transition);
+      font-size: 14px;
+      flex-shrink: 0;
     }
 
-    .history-item .h-delete:hover {
-      background: rgba(252, 129, 129, 0.2);
-      color: var(--danger);
+    .history-item .delete-btn:hover {
+      color: #e53e3e;
+      background: rgba(229, 62, 62, 0.08);
     }
 
     .history-empty {
       text-align: center;
-      color: var(--gray);
-      padding: 30px 0;
+      padding: 32px 0;
+      color: var(--gray-500);
     }
 
-    .history-empty .empty-icon {
-      font-size: 48px;
-      margin-bottom: 10px;
-      opacity: 0.5;
+    .history-empty .icon {
+      font-size: 32px;
+      margin-bottom: 8px;
+      opacity: 0.4;
     }
 
-    /* Save Modal */
+    .history-empty p {
+      font-size: 14px;
+    }
+
+    /* ===== Modal ===== */
     .modal-overlay {
       display: none;
       position: fixed;
@@ -660,39 +756,36 @@
       left: 0;
       right: 0;
       bottom: 0;
-      background: rgba(0, 0, 0, 0.5);
-      backdrop-filter: blur(5px);
+      background: rgba(10, 22, 40, 0.6);
+      backdrop-filter: blur(4px);
       z-index: 1000;
       justify-content: center;
       align-items: center;
       animation: fadeIn 0.3s ease;
     }
 
-    .modal-overlay.show {
+    .modal-overlay.visible {
       display: flex;
     }
 
     @keyframes fadeIn {
-      from {
-        opacity: 0;
-      }
-      to {
-        opacity: 1;
-      }
+      from { opacity: 0; }
+      to { opacity: 1; }
     }
 
     .modal {
-      background: white;
-      border-radius: 20px;
-      padding: 30px;
-      max-width: 450px;
+      background: var(--white);
+      border-radius: var(--radius-lg);
+      padding: 32px;
+      max-width: 480px;
       width: 90%;
       animation: scaleIn 0.3s ease;
+      box-shadow: var(--shadow-xl);
     }
 
     @keyframes scaleIn {
       from {
-        transform: scale(0.9);
+        transform: scale(0.95);
         opacity: 0;
       }
       to {
@@ -702,29 +795,34 @@
     }
 
     .modal h3 {
-      font-size: 22px;
-      margin-bottom: 10px;
-      color: var(--dark);
+      font-size: 20px;
+      font-weight: 600;
+      color: var(--navy-900);
+      margin-bottom: 8px;
     }
 
     .modal p {
-      color: var(--gray);
+      color: var(--gray-500);
       margin-bottom: 20px;
+      font-size: 14px;
     }
 
     .modal input {
       width: 100%;
       padding: 12px 16px;
-      border: 2px solid #e2e8f0;
-      border-radius: 10px;
+      border: 1px solid var(--gray-300);
+      border-radius: var(--radius);
       font-size: 14px;
-      margin-bottom: 15px;
+      margin-bottom: 20px;
+      transition: var(--transition);
+      background: var(--gray-100);
     }
 
     .modal input:focus {
       outline: none;
-      border-color: var(--primary);
-      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2);
+      border-color: var(--navy-400);
+      background: var(--white);
+      box-shadow: 0 0 0 3px rgba(59, 108, 176, 0.1);
     }
 
     .modal-actions {
@@ -736,96 +834,98 @@
     .modal-actions button {
       padding: 10px 24px;
       border: none;
-      border-radius: 10px;
+      border-radius: var(--radius);
       cursor: pointer;
-      font-weight: 600;
-      transition: all 0.3s;
+      font-weight: 500;
+      font-size: 14px;
+      transition: var(--transition);
     }
 
     .modal-actions .btn-cancel {
-      background: #e2e8f0;
-      color: var(--dark);
+      background: var(--gray-100);
+      color: var(--gray-700);
     }
 
     .modal-actions .btn-cancel:hover {
-      background: #cbd5e0;
+      background: var(--gray-300);
     }
 
     .modal-actions .btn-confirm {
-      background: linear-gradient(135deg, var(--primary), var(--secondary));
-      color: white;
+      background: var(--navy-500);
+      color: var(--white);
     }
 
     .modal-actions .btn-confirm:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+      background: var(--navy-600);
+      box-shadow: var(--shadow-sm);
     }
 
-    /* Toast Notification */
+    /* ===== Toast ===== */
     .toast {
       position: fixed;
-      bottom: 30px;
-      right: 30px;
-      background: var(--dark);
-      color: white;
-      padding: 15px 25px;
-      border-radius: 12px;
+      bottom: 24px;
+      right: 24px;
+      background: var(--navy-900);
+      color: var(--white);
+      padding: 14px 24px;
+      border-radius: var(--radius);
       transform: translateX(120%);
-      transition: transform 0.4s ease;
+      transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
       z-index: 2000;
-      max-width: 350px;
-      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
+      box-shadow: var(--shadow-lg);
+      max-width: 400px;
+      font-size: 14px;
     }
 
     .toast.show {
       transform: translateX(0);
     }
 
-    .toast.success {
-      background: var(--success);
-    }
-    .toast.error {
-      background: var(--danger);
-    }
-    .toast.warning {
-      background: var(--warning);
-    }
+    .toast.success { background: #38a169; }
+    .toast.error { background: #e53e3e; }
+    .toast.warning { background: #dd6b20; }
 
-    /* Responsive */
-    @media (max-width: 600px) {
-      .app-container {
-        padding: 15px;
-      }
-      .header h1 {
-        font-size: 24px;
-      }
-      .score-number {
-        font-size: 40px;
-      }
-      .result-stats {
-        grid-template-columns: 1fr 1fr;
-      }
-      .modal {
-        padding: 20px;
-      }
-      .upload-box {
-        min-height: 150px;
-        padding: 15px;
-      }
+    /* ===== Scrollbar ===== */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: var(--gray-100);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: var(--gray-300);
+      border-radius: 8px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--gray-500);
     }
   </style>
 </head>
 <body>
 
-  <!-- Toast Notification -->
+  <!-- ===== SPLASH SCREEN ===== -->
+  <div id="splash">
+   <div class="logo-mark" id="splashLogo">
+  <img src="logo.png" alt="PlagiScan" style="width:40px;height:40px;">
+</div>
+
+<
+    <h1>Plagi<span>Scan</span></h1>
+    <div class="loader">
+      <div class="loader-bar"></div>
+    </div>
+  </div>
+
+  <!-- ===== TOAST ===== -->
   <div class="toast" id="toast"></div>
 
-  <!-- Save Modal -->
+  <!-- ===== SAVE MODAL ===== -->
   <div class="modal-overlay" id="saveModal">
     <div class="modal">
-      <h3>💾 Save Scan Result</h3>
-      <p>Give this scan a name so you can find it later.</p>
-      <input type="text" id="scanNameInput" placeholder="e.g., My Essay Check" maxlength="50">
+      <h3>Save Scan</h3>
+      <p>Give this scan a name for easy reference.</p>
+      <input type="text" id="scanNameInput" placeholder="e.g., Research Paper Check" maxlength="50">
       <div class="modal-actions">
         <button class="btn-cancel" onclick="closeSaveModal()">Cancel</button>
         <button class="btn-confirm" onclick="confirmSave()">Save</button>
@@ -833,118 +933,124 @@
     </div>
   </div>
 
-  <div class="app-container">
+  <!-- ===== HISTORY MODAL ===== -->
+  <div class="modal-overlay" id="historyModal">
+    <div class="modal" style="max-width: 560px;">
+      <h3>Scan History</h3>
+      <p>Your saved scans</p>
+      <div id="historyModalList" style="max-height: 400px; overflow-y: auto; margin-bottom: 16px;"></div>
+      <div class="modal-actions">
+        <button class="btn-cancel" onclick="closeHistoryModal()">Close</button>
+        <button class="btn-confirm" onclick="clearHistory()" style="background:#e53e3e;">Clear All</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== APP ===== -->
+  <div class="app" id="app">
+
     <!-- Header -->
     <header class="header">
       <div class="header-left">
-        <div class="logo">P</div>
-        <div>
-          <h1>PlagiScan</h1>
-          <span class="header-subtitle">Advanced Plagiarism Detection</span>
-        </div>
+        <div class="logo-icon" id="appLogo">P</div>
+        <h1>Plagi<span>Scan</span></h1>
       </div>
       <div class="header-actions">
-        <button class="btn-icon" onclick="clearHistory()" title="Clear All History">🗑️</button>
-        <button class="btn-icon" onclick="exportHistory()" title="Export History">📤</button>
+        <button onclick="openHistoryModal()">
+          <span>📋</span> History <span id="historyBadge" style="background:var(--gray-100);padding:0 8px;border-radius:10px;font-size:12px;">0</span>
+        </button>
+        <button onclick="exportHistory()">📤 Export</button>
       </div>
     </header>
 
-    <!-- Main Content -->
-    <div class="main-content">
-      <!-- Left Column -->
-      <div class="upload-section">
-        <!-- URL Input -->
-        <div class="url-input-container">
-          <span>🔗</span>
-          <input type="url" id="urlInput" placeholder="Paste URL to extract text (e.g., https://example.com/article)">
-          <button id="fetchUrlBtn" onclick="fetchUrlContent()">📥 Extract</button>
-        </div>
+    <!-- Main -->
+    <main class="main">
 
-        <!-- Upload Grid -->
-        <div class="upload-grid">
-          <div class="upload-box" id="drop1">
-            <div class="upload-icon">📄</div>
-            <label for="file1">Drop File 1 or Click</label>
-            <input type="file" id="file1" accept=".txt,.docx,.pdf">
-            <div class="file-info">
-              <div class="file-name" id="file1-name"></div>
-              <div class="file-size" id="file1-size"></div>
-            </div>
-          </div>
+      <!-- URL Section -->
+      <div class="url-section">
+        <span class="url-icon">🔗</span>
+        <input type="url" id="urlInput" placeholder="Paste a URL to extract text content">
+        <button id="fetchUrlBtn" onclick="fetchUrlContent()">Extract</button>
+      </div>
 
-          <div class="upload-box" id="drop2">
-            <div class="upload-icon">📄</div>
-            <label for="file2">Drop File 2 or Click</label>
-            <input type="file" id="file2" accept=".txt,.docx,.pdf">
-            <div class="file-info">
-              <div class="file-name" id="file2-name"></div>
-              <div class="file-size" id="file2-size"></div>
-            </div>
+      <!-- Upload Grid -->
+      <div class="upload-grid">
+        <div class="upload-box" id="drop1">
+          <div class="icon">📄</div>
+          <div class="label">Drop file here or <strong>click to browse</strong></div>
+          <div class="hint">Supports TXT, DOCX, PDF</div>
+          <input type="file" id="file1" accept=".txt,.docx,.pdf">
+          <div class="file-info">
+            <div class="file-name" id="file1-name"></div>
+            <div class="file-size" id="file1-size"></div>
           </div>
         </div>
 
-        <!-- Compare Button -->
+        <div class="upload-box" id="drop2">
+          <div class="icon">📄</div>
+          <div class="label">Drop file here or <strong>click to browse</strong></div>
+          <div class="hint">Supports TXT, DOCX, PDF</div>
+          <input type="file" id="file2" accept=".txt,.docx,.pdf">
+          <div class="file-info">
+            <div class="file-name" id="file2-name"></div>
+            <div class="file-size" id="file2-size"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Compare Button -->
+      <div class="compare-wrap">
         <button class="compare-btn" id="compareBtn" disabled>
-          <span class="scan-text">
-            <span class="spinner"></span>
-            <span class="label">🔍 Compare Documents</span>
+          <span class="scan-indicator">
+            <span class="dot"></span>
+            <span class="dot"></span>
+            <span class="dot"></span>
+            <span>Compare Documents</span>
           </span>
         </button>
+      </div>
 
-        <!-- Result Section -->
-        <div class="result-section" id="resultSection">
-          <div class="result-card" id="resultCard">
-            <div class="result-header">
-              <div class="score-container">
-                <span class="score-number" id="scoreNumber">0%</span>
-                <span class="score-label">Similarity</span>
-              </div>
-              <span class="score-status" id="scoreStatus"></span>
+      <!-- Result -->
+      <div class="result-section" id="resultSection">
+        <div class="result-card" id="resultCard">
+          <div class="result-header">
+            <div class="score-block">
+              <span class="score-number" id="scoreNumber">0%</span>
+              <span class="score-label">Similarity</span>
             </div>
+            <span class="score-status" id="scoreStatus"></span>
+          </div>
 
-            <div class="result-stats">
-              <div class="stat-item">
-                <div class="stat-label">Document 1</div>
-                <div class="stat-value" id="doc1Stats">0 words</div>
-              </div>
-              <div class="stat-item">
-                <div class="stat-label">Document 2</div>
-                <div class="stat-value" id="doc2Stats">0 words</div>
-              </div>
-              <div class="stat-item">
-                <div class="stat-label">Common Words</div>
-                <div class="stat-value" id="commonCount">0</div>
-              </div>
-              <div class="stat-item">
-                <div class="stat-label">Unique Words</div>
-                <div class="stat-value" id="uniqueCount">0</div>
-              </div>
+          <div class="result-stats">
+            <div class="stat-item">
+              <div class="label">Document 1</div>
+              <div class="value" id="doc1Stats">0 words</div>
             </div>
-
-            <div class="word-cloud" id="wordCloud"></div>
-
-            <div class="result-actions">
-              <button class="btn-save" onclick="openSaveModal()">💾 Save Scan</button>
+            <div class="stat-item">
+              <div class="label">Document 2</div>
+              <div class="value" id="doc2Stats">0 words</div>
             </div>
+            <div class="stat-item">
+              <div class="label">Common Words</div>
+              <div class="value" id="commonCount">0</div>
+            </div>
+            <div class="stat-item">
+              <div class="label">Unique Words</div>
+              <div class="value" id="uniqueCount">0</div>
+            </div>
+          </div>
+
+          <div class="word-cloud" id="wordCloud">
+            <span class="title">Common Words</span>
+          </div>
+
+          <div class="result-actions">
+            <button class="btn-primary" onclick="openSaveModal()">💾 Save Scan</button>
           </div>
         </div>
       </div>
 
-      <!-- Sidebar - History -->
-      <div class="sidebar">
-        <div class="sidebar-title">
-          📋 Scan History
-          <span class="count" id="historyCount">0</span>
-        </div>
-        <div id="historyList">
-          <div class="history-empty">
-            <div class="empty-icon">🔍</div>
-            <p>No scans saved yet</p>
-            <p style="font-size:12px;margin-top:5px;">Run a comparison and save it here</p>
-          </div>
-        </div>
-      </div>
-    </div>
+    </main>
   </div>
 
   <script src="renderer.js"></script>

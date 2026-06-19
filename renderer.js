@@ -1,40 +1,27 @@
-// PlagiScan - Complete Renderer Logic
+// ===== PlagiScan - Renderer Logic =====
 let file1Content = '';
 let file2Content = '';
 let currentResult = null;
 let history = [];
 let scanIdCounter = 0;
 
-// Load history from localStorage
-function loadHistory() {
-  try {
-    const saved = localStorage.getItem('plagiscan_history');
-    if (saved) {
-      history = JSON.parse(saved);
-      scanIdCounter = history.length > 0 ? Math.max(...history.map(h => h.id)) + 1 : 0;
-      renderHistory();
-    }
-  } catch (e) {
-    console.error('Failed to load history:', e);
-  }
+// ===== Configure PDF.js - Use the SAME version as CDN =====
+if (typeof pdfjsLib !== 'undefined') {
+  // Use the worker from the same CDN version
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 }
 
-// Save history to localStorage
-function saveHistory() {
-  try {
-    localStorage.setItem('plagiscan_history', JSON.stringify(history));
-    renderHistory();
-    updateHistoryCount();
-  } catch (e) {
-    console.error('Failed to save history:', e);
-  }
-}
+// ===== Splash Screen =====
+document.addEventListener('DOMContentLoaded', () => {
+  setTimeout(() => {
+    const splash = document.getElementById('splash');
+    splash.classList.add('hide');
+    document.getElementById('app').classList.add('ready');
+    loadHistory();
+  }, 1400);
+});
 
-function updateHistoryCount() {
-  document.getElementById('historyCount').textContent = history.length;
-}
-
-// Toast notification
+// ===== Toast System =====
 function showToast(message, type = 'info', duration = 3000) {
   const toast = document.getElementById('toast');
   toast.textContent = message;
@@ -46,9 +33,43 @@ function showToast(message, type = 'info', duration = 3000) {
   }, duration);
 }
 
-// File handlers
+// ===== History Management =====
+function loadHistory() {
+  try {
+    const saved = localStorage.getItem('plagiscan_history');
+    if (saved) {
+      history = JSON.parse(saved);
+      scanIdCounter = history.length > 0 ? Math.max(...history.map(h => h.id)) + 1 : 0;
+      updateHistoryBadge();
+    }
+  } catch (e) {
+    console.error('Failed to load history:', e);
+  }
+}
+
+function saveHistory() {
+  try {
+    localStorage.setItem('plagiscan_history', JSON.stringify(history));
+    updateHistoryBadge();
+  } catch (e) {
+    console.error('Failed to save history:', e);
+  }
+}
+
+function updateHistoryBadge() {
+  document.getElementById('historyBadge').textContent = history.length;
+}
+
+// ===== File Upload =====
 document.getElementById('file1').addEventListener('change', (e) => handleFile(e, 1));
 document.getElementById('file2').addEventListener('change', (e) => handleFile(e, 2));
+
+document.getElementById('drop1').addEventListener('click', () => {
+  document.getElementById('file1').click();
+});
+document.getElementById('drop2').addEventListener('click', () => {
+  document.getElementById('file2').click();
+});
 
 // Drag and drop
 ['drop1', 'drop2'].forEach((id, index) => {
@@ -78,56 +99,134 @@ document.getElementById('file2').addEventListener('change', (e) => handleFile(e,
   });
 });
 
-function handleFile(e, num) {
+async function handleFile(e, num) {
   const file = e.target.files[0];
   if (!file) return;
 
-  const reader = new FileReader();
   const nameDisplay = document.getElementById(`file${num}-name`);
   const sizeDisplay = document.getElementById(`file${num}-size`);
   const box = document.getElementById(`drop${num}`);
+  const extension = file.name.split('.').pop().toLowerCase();
 
-  // Show file info
-  nameDisplay.textContent = `📎 ${file.name}`;
+  nameDisplay.textContent = file.name;
   sizeDisplay.textContent = `${(file.size / 1024).toFixed(1)} KB`;
-  box.classList.add('has-file');
+  box.classList.add('has-content');
 
-  reader.onload = (event) => {
-    if (num === 1) {
-      file1Content = event.target.result;
+  try {
+    let text = '';
+
+    if (extension === 'txt') {
+      text = await readFileAsText(file);
+    } else if (extension === 'pdf') {
+      text = await extractPDFText(file);
+    } else if (extension === 'docx') {
+      text = await extractDOCXText(file);
     } else {
-      file2Content = event.target.result;
+      showToast('Use TXT, PDF, or DOCX files', 'error');
+      return;
     }
 
-    if (file1Content && file2Content) {
-      document.getElementById('compareBtn').disabled = false;
-      showToast(`✅ File ${num} loaded successfully`, 'success');
+    if (text && text.trim().length > 0) {
+      if (num === 1) {
+        file1Content = text;
+      } else {
+        file2Content = text;
+      }
+
+      if (file1Content && file2Content) {
+        document.getElementById('compareBtn').disabled = false;
+      }
+      
+      showToast(`Loaded ${text.length} characters`, 'success');
+    } else {
+      showToast('No text found in file', 'error');
     }
-  };
-
-  reader.onerror = () => {
-    showToast('❌ Error reading file', 'error');
-  };
-
-  reader.readAsText(file);
+  } catch (error) {
+    showToast(`Error: ${error.message}`, 'error');
+    console.error('File read error:', error);
+  }
 }
 
-// URL Extraction
+function readFileAsText(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => resolve(e.target.result);
+    reader.onerror = () => reject(new Error('Failed to read file'));
+    reader.readAsText(file);
+  });
+}
+
+// ===== PDF Extraction - Fixed Version =====
+async function extractPDFText(file) {
+  try {
+    // Check if pdfjsLib is loaded
+    if (typeof pdfjsLib === 'undefined') {
+      throw new Error('PDF library not loaded');
+    }
+
+    // Set worker version to match
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ 
+      data: arrayBuffer,
+      useSystemFonts: true  // Helps with some PDFs
+    }).promise;
+    
+    let fullText = '';
+    
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      const textContent = await page.getTextContent();
+      const pageText = textContent.items.map(item => item.str).join(' ');
+      fullText += pageText + '\n';
+    }
+    
+    if (!fullText.trim()) {
+      throw new Error('No text found in PDF');
+    }
+    
+    return fullText;
+  } catch (error) {
+    throw new Error(`PDF extraction: ${error.message}`);
+  }
+}
+
+// ===== DOCX Extraction =====
+async function extractDOCXText(file) {
+  try {
+    if (typeof mammoth === 'undefined') {
+      throw new Error('DOCX library not loaded');
+    }
+    
+    const arrayBuffer = await file.arrayBuffer();
+    const result = await mammoth.extractRawText({ arrayBuffer });
+    
+    if (!result.value || !result.value.trim()) {
+      throw new Error('No text found in DOCX');
+    }
+    
+    return result.value;
+  } catch (error) {
+    throw new Error(`DOCX extraction: ${error.message}`);
+  }
+}
+
+// ===== URL Extraction =====
 async function fetchUrlContent() {
   const urlInput = document.getElementById('urlInput');
   const url = urlInput.value.trim();
   
   if (!url) {
-    showToast('⚠️ Please enter a URL', 'warning');
+    showToast('Please enter a URL', 'warning');
     return;
   }
 
   const btn = document.getElementById('fetchUrlBtn');
   btn.disabled = true;
-  btn.textContent = '⏳ Loading...';
+  btn.textContent = 'Loading...';
 
   try {
-    // Using a CORS proxy to fetch content
     const response = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`);
     if (!response.ok) throw new Error('Failed to fetch URL');
     
@@ -135,37 +234,42 @@ async function fetchUrlContent() {
     const parser = new DOMParser();
     const doc = parser.parseFromString(html, 'text/html');
     
-    // Extract text content
+    // Remove script and style tags
+    doc.querySelectorAll('script, style, noscript').forEach(el => el.remove());
+    
     const text = doc.body.textContent || '';
     const cleanText = text.replace(/\s+/g, ' ').trim();
     
     if (cleanText.length < 100) {
-      showToast('⚠️ Could not extract enough content from URL', 'warning');
+      showToast('Could not extract enough content', 'warning');
       btn.disabled = false;
-      btn.textContent = '📥 Extract';
+      btn.textContent = 'Extract';
       return;
     }
 
-    // Store in file1
     file1Content = cleanText;
-    document.getElementById('file1-name').textContent = `🌐 ${url.replace(/^https?:\/\//, '').slice(0, 30)}...`;
+    document.getElementById('file1-name').textContent = url.replace(/^https?:\/\//, '').slice(0, 40) + '...';
     document.getElementById('file1-size').textContent = `${(cleanText.length / 1024).toFixed(1)} KB`;
-    document.getElementById('drop1').classList.add('has-file');
+    document.getElementById('drop1').classList.add('has-content');
 
-    showToast('✅ URL content extracted successfully!', 'success');
+    showToast('URL content extracted', 'success');
     
     if (file1Content && file2Content) {
       document.getElementById('compareBtn').disabled = false;
     }
   } catch (error) {
-    showToast('❌ Error fetching URL: ' + error.message, 'error');
+    showToast('Error: ' + error.message, 'error');
   } finally {
     btn.disabled = false;
-    btn.textContent = '📥 Extract';
+    btn.textContent = 'Extract';
   }
 }
 
-// Comparison algorithm
+document.getElementById('urlInput').addEventListener('keypress', (e) => {
+  if (e.key === 'Enter') fetchUrlContent();
+});
+
+// ===== Comparison Algorithm =====
 function calculateSimilarity(text1, text2) {
   if (!text1 || !text2) return 0;
 
@@ -188,7 +292,6 @@ function calculateSimilarity(text1, text2) {
   const total = set1.size + set2.size;
   const wordSimilarity = total > 0 ? (common * 2 / total * 100) : 0;
 
-  // Phrase similarity
   let phraseMatches = 0;
   let totalPhrases = 0;
   const phraseLen = 3;
@@ -223,14 +326,14 @@ function findCommonWords(words1, words2, limit = 15) {
   return common.slice(0, limit);
 }
 
-// Compare button
+// ===== Compare =====
 document.getElementById('compareBtn').addEventListener('click', () => {
   const btn = document.getElementById('compareBtn');
   const resultSection = document.getElementById('resultSection');
 
   btn.classList.add('scanning');
   btn.disabled = true;
-  resultSection.classList.remove('show');
+  resultSection.classList.remove('visible');
 
   setTimeout(() => {
     const similarity = calculateSimilarity(file1Content, file2Content);
@@ -241,7 +344,6 @@ document.getElementById('compareBtn').addEventListener('click', () => {
     const words1 = clean1.split(/\s+/).filter(w => w.length > 2);
     const words2 = clean2.split(/\s+/).filter(w => w.length > 2);
 
-    // Store result
     currentResult = {
       score: parseFloat(percentage),
       words1: words1.length,
@@ -253,37 +355,29 @@ document.getElementById('compareBtn').addEventListener('click', () => {
       doc2Name: document.getElementById('file2-name').textContent || 'Document 2'
     };
 
-    // Update UI
-    const scoreNumber = document.getElementById('scoreNumber');
-    const scoreStatus = document.getElementById('scoreStatus');
-    const resultCard = document.getElementById('resultCard');
-
-    scoreNumber.textContent = `${percentage}%`;
+    document.getElementById('scoreNumber').textContent = `${percentage}%`;
     document.getElementById('doc1Stats').textContent = `${words1.length} words`;
     document.getElementById('doc2Stats').textContent = `${words2.length} words`;
     document.getElementById('commonCount').textContent = currentResult.commonWords.length;
     document.getElementById('uniqueCount').textContent = new Set([...words1, ...words2]).size;
 
-    // Status and styling
-    resultCard.className = 'result-card';
-    if (percentage > 70) {
-      resultCard.classList.add('high');
-      scoreStatus.textContent = '🚨 High Similarity - Plagiarism Possible!';
-      scoreStatus.style.color = '#fc8181';
-    } else if (percentage > 40) {
-      resultCard.classList.add('medium');
-      scoreStatus.textContent = '⚠️ Moderate Similarity - Review Recommended';
-      scoreStatus.style.color = '#ed8936';
+    const statusEl = document.getElementById('scoreStatus');
+    const p = parseFloat(percentage);
+    
+    if (p > 70) {
+      statusEl.className = 'score-status high';
+      statusEl.textContent = 'High Similarity';
+    } else if (p > 40) {
+      statusEl.className = 'score-status medium';
+      statusEl.textContent = 'Moderate Similarity';
     } else {
-      resultCard.classList.add('low');
-      scoreStatus.textContent = '✅ Low Similarity - Original Content';
-      scoreStatus.style.color = '#48bb78';
+      statusEl.className = 'score-status low';
+      statusEl.textContent = 'Low Similarity';
     }
 
-    // Word cloud
     const cloud = document.getElementById('wordCloud');
-    cloud.innerHTML = '<strong style="font-size:14px;color:#a0aec0;">Common Words: </strong>';
-    currentResult.commonWords.slice(0, 12).forEach((item, index) => {
+    cloud.innerHTML = '<span class="title">Common Words</span>';
+    currentResult.commonWords.slice(0, 12).forEach((item) => {
       const tag = document.createElement('span');
       const level = Math.min(Math.floor(item.count / 2) + 1, 4);
       tag.className = `word-tag level-${level}`;
@@ -292,31 +386,31 @@ document.getElementById('compareBtn').addEventListener('click', () => {
     });
 
     if (currentResult.commonWords.length === 0) {
-      cloud.innerHTML = '<span style="color:#a0aec0;">No significant common words found</span>';
+      cloud.innerHTML = '<span class="title">Common Words</span><span style="color:var(--gray-500);font-size:14px;">No significant common words found</span>';
     }
 
-    resultSection.classList.add('show');
+    resultSection.classList.add('visible');
     btn.classList.remove('scanning');
     btn.disabled = false;
 
-    showToast('✅ Comparison complete!', 'success');
-  }, 1000);
+    showToast('Comparison complete', 'success');
+  }, 800);
 });
 
-// Save Modal
+// ===== Save Modal =====
 function openSaveModal() {
   if (!currentResult) {
-    showToast('⚠️ No scan result to save', 'warning');
+    showToast('No scan result to save', 'warning');
     return;
   }
-  document.getElementById('saveModal').classList.add('show');
+  document.getElementById('saveModal').classList.add('visible');
   document.getElementById('scanNameInput').value = `Scan ${history.length + 1}`;
   document.getElementById('scanNameInput').focus();
   document.getElementById('scanNameInput').select();
 }
 
 function closeSaveModal() {
-  document.getElementById('saveModal').classList.remove('show');
+  document.getElementById('saveModal').classList.remove('visible');
 }
 
 function confirmSave() {
@@ -339,44 +433,52 @@ function confirmSave() {
   history.unshift(scan);
   saveHistory();
   closeSaveModal();
-  showToast(`💾 Scan "${name}" saved!`, 'success');
+  showToast(`Scan "${name}" saved`, 'success');
 }
 
-function renderHistory() {
-  const container = document.getElementById('historyList');
+// ===== History Modal =====
+function openHistoryModal() {
+  const modal = document.getElementById('historyModal');
+  const list = document.getElementById('historyModalList');
   
   if (history.length === 0) {
-    container.innerHTML = `
-      <div class="history-empty">
-        <div class="empty-icon">🔍</div>
+    list.innerHTML = `
+      <div style="text-align:center;padding:32px 0;color:var(--gray-500);">
+        <div style="font-size:32px;margin-bottom:8px;opacity:0.4;">🔍</div>
         <p>No scans saved yet</p>
-        <p style="font-size:12px;margin-top:5px;">Run a comparison and save it here</p>
       </div>
     `;
-    return;
-  }
-
-  container.innerHTML = history.map(scan => {
-    const level = scan.score > 70 ? 'high' : scan.score > 40 ? 'medium' : 'low';
-    const date = new Date(scan.date);
-    const dateStr = date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    
-    return `
-      <div class="history-item ${level}" onclick="viewScan(${scan.id})">
-        <div style="display:flex;justify-content:space-between;align-items:center;">
-          <span class="h-name">${escapeHtml(scan.name)}</span>
-          <span class="h-score" style="color:${scan.score > 70 ? '#fc8181' : scan.score > 40 ? '#ed8936' : '#48bb78'}">
+  } else {
+    list.innerHTML = history.map(scan => {
+      const date = new Date(scan.date);
+      const dateStr = date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      
+      return `
+        <div style="background:var(--gray-100);border-radius:var(--radius);padding:12px 16px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;transition:var(--transition);"
+             onclick="viewScan(${scan.id}); closeHistoryModal();"
+             onmouseenter="this.style.background='rgba(59,108,176,0.06)'"
+             onmouseleave="this.style.background='var(--gray-100)'">
+          <div style="flex:1;min-width:0;">
+            <div style="font-weight:600;color:var(--navy-900);font-size:14px;">${escapeHtml(scan.name)}</div>
+            <div style="font-size:12px;color:var(--gray-500);">${escapeHtml(scan.doc1Name)} vs ${escapeHtml(scan.doc2Name)} · ${dateStr}</div>
+          </div>
+          <div style="font-size:18px;font-weight:700;color:${scan.score > 70 ? '#e53e3e' : scan.score > 40 ? '#dd6b20' : '#38a169'};flex-shrink:0;margin-left:12px;">
             ${scan.score.toFixed(1)}%
-          </span>
+          </div>
+          <button onclick="event.stopPropagation(); deleteScan(${scan.id});" 
+                  style="background:transparent;border:none;color:var(--gray-300);cursor:pointer;padding:4px 8px;border-radius:4px;font-size:14px;flex-shrink:0;"
+                  onmouseenter="this.style.color='#e53e3e';this.style.background='rgba(229,62,62,0.08)'"
+                  onmouseleave="this.style.color='var(--gray-300)';this.style.background='transparent'">✕</button>
         </div>
-        <div class="h-date">📄 ${escapeHtml(scan.doc1Name)} vs ${escapeHtml(scan.doc2Name)}</div>
-        <div class="h-date">📅 ${dateStr}</div>
-        <button class="h-delete" onclick="event.stopPropagation(); deleteScan(${scan.id})" title="Delete scan">✕</button>
-      </div>
-    `;
-  }).join('');
+      `;
+    }).join('');
+  }
+  
+  modal.classList.add('visible');
+}
 
-  updateHistoryCount();
+function closeHistoryModal() {
+  document.getElementById('historyModal').classList.remove('visible');
 }
 
 function escapeHtml(text) {
@@ -385,11 +487,11 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
+// ===== View Scan =====
 function viewScan(id) {
   const scan = history.find(h => h.id === id);
   if (!scan) return;
 
-  // Restore the scan results
   currentResult = {
     score: scan.score,
     words1: scan.words1,
@@ -401,36 +503,27 @@ function viewScan(id) {
     doc2Name: scan.doc2Name
   };
 
-  // Update UI
-  const scoreNumber = document.getElementById('scoreNumber');
-  const resultCard = document.getElementById('resultCard');
-  const resultSection = document.getElementById('resultSection');
-
-  scoreNumber.textContent = `${scan.score.toFixed(1)}%`;
+  document.getElementById('scoreNumber').textContent = `${scan.score.toFixed(1)}%`;
   document.getElementById('doc1Stats').textContent = `${scan.words1} words`;
   document.getElementById('doc2Stats').textContent = `${scan.words2} words`;
   document.getElementById('commonCount').textContent = scan.commonWords.length;
   document.getElementById('uniqueCount').textContent = '—';
 
-  const scoreStatus = document.getElementById('scoreStatus');
-  resultCard.className = 'result-card';
+  const statusEl = document.getElementById('scoreStatus');
   if (scan.score > 70) {
-    resultCard.classList.add('high');
-    scoreStatus.textContent = '🚨 High Similarity - Plagiarism Possible!';
-    scoreStatus.style.color = '#fc8181';
+    statusEl.className = 'score-status high';
+    statusEl.textContent = 'High Similarity';
   } else if (scan.score > 40) {
-    resultCard.classList.add('medium');
-    scoreStatus.textContent = '⚠️ Moderate Similarity - Review Recommended';
-    scoreStatus.style.color = '#ed8936';
+    statusEl.className = 'score-status medium';
+    statusEl.textContent = 'Moderate Similarity';
   } else {
-    resultCard.classList.add('low');
-    scoreStatus.textContent = '✅ Low Similarity - Original Content';
-    scoreStatus.style.color = '#48bb78';
+    statusEl.className = 'score-status low';
+    statusEl.textContent = 'Low Similarity';
   }
 
   const cloud = document.getElementById('wordCloud');
-  cloud.innerHTML = '<strong style="font-size:14px;color:#a0aec0;">Common Words: </strong>';
-  scan.commonWords.slice(0, 12).forEach((item, index) => {
+  cloud.innerHTML = '<span class="title">Common Words</span>';
+  scan.commonWords.slice(0, 12).forEach((item) => {
     const tag = document.createElement('span');
     const level = Math.min(Math.floor(item.count / 2) + 1, 4);
     tag.className = `word-tag level-${level}`;
@@ -438,15 +531,17 @@ function viewScan(id) {
     cloud.appendChild(tag);
   });
 
-  resultSection.classList.add('show');
-  showToast(`📋 Loaded scan: "${scan.name}"`, 'success');
+  document.getElementById('resultSection').classList.add('visible');
+  showToast(`Loaded scan: "${scan.name}"`, 'success');
 }
 
+// ===== Delete & Clear =====
 function deleteScan(id) {
   if (!confirm('Delete this scan?')) return;
   history = history.filter(h => h.id !== id);
   saveHistory();
-  showToast('🗑️ Scan deleted', 'warning');
+  openHistoryModal();
+  showToast('Scan deleted', 'warning');
 }
 
 function clearHistory() {
@@ -454,12 +549,14 @@ function clearHistory() {
     showToast('No history to clear', 'warning');
     return;
   }
-  if (!confirm('Delete ALL scan history?')) return;
+  if (!confirm('Delete all scan history?')) return;
   history = [];
   saveHistory();
-  showToast('🗑️ All history cleared', 'warning');
+  closeHistoryModal();
+  showToast('All history cleared', 'warning');
 }
 
+// ===== Export =====
 function exportHistory() {
   if (history.length === 0) {
     showToast('No history to export', 'warning');
@@ -485,15 +582,5 @@ function exportHistory() {
   a.download = `plagiscan_history_${new Date().toISOString().slice(0,10)}.json`;
   a.click();
   URL.revokeObjectURL(url);
-  showToast('📤 History exported!', 'success');
+  showToast('History exported', 'success');
 }
-
-// Enter key for URL input
-document.getElementById('urlInput').addEventListener('keypress', (e) => {
-  if (e.key === 'Enter') {
-    fetchUrlContent();
-  }
-});
-
-// Initialize
-loadHistory();
